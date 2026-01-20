@@ -9,8 +9,69 @@ import {
   CreditCard,
   ChevronRight
 } from 'lucide-react';
+import { 
+  BarChart as ReBarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  Cell as ReCell
+} from 'recharts';
+import { format, parseISO } from 'date-fns';
 
-const ReportsView: React.FC = () => {
+interface ReportsViewProps {
+  data: {
+    summary: {
+      totalSeconds: number;
+      billableSeconds: number;
+      totalAmount: number;
+    };
+    dailyActivity: {
+      date: string;
+      hours: number;
+    }[];
+    projectDistribution: {
+      name: string;
+      hours: number;
+      color: string;
+    }[];
+  };
+}
+
+const COLOR_MAP: Record<string, string> = {
+  'text-indigo-600': '#4f46e5',
+  'text-purple-600': '#9333ea',
+  'text-blue-600': '#2563eb',
+  'text-emerald-600': '#059669',
+  'text-rose-600': '#e11d48',
+  'text-amber-600': '#d97706',
+  'text-slate-600': '#475569',
+  'bg-indigo-500': '#6366f1',
+  'bg-purple-500': '#a855f7',
+  'bg-blue-500': '#3b82f6',
+  'bg-emerald-500': '#10b981',
+  'bg-rose-500': '#f43f5e',
+  'bg-amber-500': '#f59e0b',
+  'bg-slate-500': '#64748b',
+};
+
+const getHexColor = (color: string) => {
+  return COLOR_MAP[color] || COLOR_MAP[color.replace('text-', 'bg-')] || '#6366f1';
+};
+
+const ReportsView: React.FC<ReportsViewProps> = ({ data }) => {
+  const formatDuration = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
       
@@ -19,7 +80,6 @@ const ReportsView: React.FC = () => {
         <div className="flex items-center gap-6">
             <h2 className="text-2xl font-semibold text-slate-800">Reports</h2>
             
-            {/* Tabs */}
             <div className="flex bg-slate-200/50 p-1 rounded-lg">
                 <button className="px-4 py-1.5 text-sm font-medium bg-white text-indigo-600 rounded-md shadow-sm transition-all">Summary</button>
                 <button className="px-4 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all">Detailed</button>
@@ -28,10 +88,9 @@ const ReportsView: React.FC = () => {
             </div>
         </div>
 
-        {/* Date Picker Mock */}
         <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm px-3 py-2 cursor-pointer hover:border-indigo-300 transition-colors">
             <Calendar size={16} className="text-slate-400 mr-2" />
-            <span className="text-sm text-slate-700 font-medium">Sep 1, 2025 - Jan 30, 2026</span>
+            <span className="text-sm text-slate-700 font-medium">Last 30 Days</span>
             <div className="w-px h-4 bg-slate-200 mx-3"></div>
             <span className="text-xs text-slate-400 uppercase font-bold tracking-wider hover:text-indigo-600">This Year</span>
         </div>
@@ -60,19 +119,19 @@ const ReportsView: React.FC = () => {
             <div className="flex items-center gap-8 w-full xl:w-auto justify-between xl:justify-start">
                 <div>
                     <div className="text-xs text-slate-500 font-medium mb-1">Total Time</div>
-                    <div className="text-2xl font-mono font-bold text-slate-800">22:56:17</div>
+                    <div className="text-2xl font-mono font-bold text-slate-800">{formatDuration(data.summary.totalSeconds)}</div>
                 </div>
                 <div className="w-px h-10 bg-slate-200 hidden xl:block"></div>
                 <div>
                     <div className="text-xs text-slate-500 font-medium mb-1">Billable Time</div>
-                    <div className="text-2xl font-mono font-bold text-slate-800">22:56:17</div>
+                    <div className="text-2xl font-mono font-bold text-slate-800">{formatDuration(data.summary.billableSeconds)}</div>
                 </div>
                 <div className="w-px h-10 bg-slate-200 hidden xl:block"></div>
                 <div>
                     <div className="text-xs text-slate-500 font-medium mb-1">Amount</div>
                     <div className="text-2xl font-mono font-bold text-slate-800 flex items-baseline">
                         <span className="text-sm text-slate-500 mr-1">USD</span>
-                        0.00
+                        {data.summary.totalAmount.toFixed(2)}
                     </div>
                 </div>
             </div>
@@ -88,7 +147,28 @@ const ReportsView: React.FC = () => {
 
         {/* Bar Chart Area */}
         <div className="p-6 h-64 border-b border-slate-200 relative">
-            <BarChart />
+            <ResponsiveContainer width="100%" height="100%">
+              <ReBarChart data={data.dailyActivity}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(str) => format(parseISO(str), 'MMM d')}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                />
+                <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+              </ReBarChart>
+            </ResponsiveContainer>
         </div>
 
         {/* Group By Controls */}
@@ -103,36 +183,44 @@ const ReportsView: React.FC = () => {
         </div>
 
         {/* Bottom Split View: List vs Donut */}
-        <div className="flex flex-col lg:flex-row h-[400px]">
+        <div className="flex flex-col lg:flex-row min-h-[400px]">
             {/* Left: Data List */}
             <div className="flex-1 overflow-y-auto border-r border-slate-200">
-                <ReportRow 
-                    label="CLDB-AI Dashboard" 
-                    sublabel="Direct Mail 2.0" 
-                    time="13:29:33" 
+                {data.projectDistribution.map((item, idx) => (
+                  <ReportRow 
+                    key={idx}
+                    label={item.name} 
+                    sublabel="Project" 
+                    time={`${item.hours.toFixed(2)}h`} 
                     amount="0.00" 
-                    color="bg-sky-500" 
-                    expanded={true}
-                />
-                <ReportRow 
-                    label="Enterprise Mail Tracker" 
-                    sublabel="Direct Mail 2.0" 
-                    time="09:26:44" 
-                    amount="0.00" 
-                    color="bg-emerald-500"
-                />
-                 <ReportRow 
-                    label="Internal Ops" 
-                    sublabel="Acme Corp" 
-                    time="04:12:10" 
-                    amount="0.00" 
-                    color="bg-amber-500"
-                />
+                    color={item.color.replace('text-', 'bg-')} 
+                  />
+                ))}
+                {data.projectDistribution.length === 0 && (
+                  <div className="p-12 text-center text-slate-400 italic">No activity in this period.</div>
+                )}
             </div>
 
             {/* Right: Donut Chart */}
             <div className="w-full lg:w-[400px] bg-white flex items-center justify-center p-8">
-                <DonutChart />
+                <ResponsiveContainer width="100%" height={300}>
+                  <RePieChart>
+                    <Pie
+                      data={data.projectDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="hours"
+                    >
+                      {data.projectDistribution.map((entry, index) => (
+                        <ReCell key={`cell-${index}`} fill={getHexColor(entry.color)} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </RePieChart>
+                </ResponsiveContainer>
             </div>
         </div>
 
@@ -179,111 +267,7 @@ const ReportRow: React.FC<{
                  <div className="font-mono text-sm text-slate-400 w-20">USD<span className="text-slate-700 ml-1">{amount}</span></div>
             </div>
         </div>
-        {/* Expanded Mock Content */}
-        {expanded && (
-            <div className="pl-14 pr-6 pb-4 pt-0">
-                <table className="w-full text-xs text-left text-slate-500">
-                    <tbody>
-                        <tr className="border-t border-slate-200/50">
-                            <td className="py-2">Fixing Navbar Bugs</td>
-                            <td className="py-2 text-right">04:15:22</td>
-                        </tr>
-                        <tr className="border-t border-slate-200/50">
-                            <td className="py-2">Database Migration</td>
-                            <td className="py-2 text-right">09:14:11</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        )}
     </div>
 );
-
-// --- Simple CSS Charts (No heavy libraries) ---
-
-const BarChart: React.FC = () => {
-    // Generate 30 days of mock heights
-    const bars = Array.from({ length: 45 }, (_, i) => {
-        const height = Math.random() * 100;
-        const isWeekend = i % 7 === 0 || i % 7 === 6;
-        return { height: isWeekend ? 0 : height, label: i % 5 === 0 ? `Nov ${i + 1}` : '' };
-    });
-
-    return (
-        <div className="w-full h-full flex items-end justify-between gap-[2px]">
-            {bars.map((bar, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center group relative">
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                        {bar.height.toFixed(1)} hrs
-                    </div>
-                    {/* Bar */}
-                    <div 
-                        className={`w-full max-w-[8px] rounded-t-sm transition-all duration-300 ${bar.height > 80 ? 'bg-emerald-500' : 'bg-emerald-400/70'} hover:bg-indigo-500`}
-                        style={{ height: `${Math.max(bar.height, 4)}%` }} // min height for visibility
-                    ></div>
-                    {/* X-Axis Label */}
-                    {bar.label && (
-                        <div className="absolute top-full mt-2 text-[10px] text-slate-400 whitespace-nowrap">
-                            {bar.label}
-                        </div>
-                    )}
-                </div>
-            ))}
-            {/* Horizontal Grid Lines */}
-            <div className="absolute inset-0 pointer-events-none flex flex-col justify-between text-[10px] text-slate-300 font-mono">
-                <div className="border-b border-dashed border-slate-100 w-full h-0 flex items-center"><span>2.2h</span></div>
-                <div className="border-b border-dashed border-slate-100 w-full h-0 flex items-center"><span>1.5h</span></div>
-                <div className="border-b border-dashed border-slate-100 w-full h-0 flex items-center"><span>0.8h</span></div>
-                <div className="border-b border-dashed border-slate-200 w-full h-0"></div>
-            </div>
-        </div>
-    );
-};
-
-const DonutChart: React.FC = () => {
-    return (
-        <div className="relative w-64 h-64">
-             {/* SVG Donut */}
-             <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
-                {/* Segment 1: Sky 500 - ~60% */}
-                <circle 
-                    cx="50" cy="50" r="40" 
-                    fill="transparent" 
-                    stroke="#0ea5e9" 
-                    strokeWidth="16" 
-                    strokeDasharray="251.2" 
-                    strokeDashoffset="100" // (100 - 60) / 100 * 251.2 approx
-                    className="hover:opacity-80 transition-opacity cursor-pointer"
-                />
-                 {/* Segment 2: Emerald 500 - ~25% */}
-                <circle 
-                    cx="50" cy="50" r="40" 
-                    fill="transparent" 
-                    stroke="#10b981" 
-                    strokeWidth="16" 
-                    strokeDasharray="251.2" 
-                    strokeDashoffset="188" // Offset to start where prev ended
-                    className="transform origin-center rotate-[216deg] hover:opacity-80 transition-opacity cursor-pointer" // 60% * 360 = 216deg
-                />
-                 {/* Segment 3: Amber 500 - ~15% */}
-                 <circle 
-                    cx="50" cy="50" r="40" 
-                    fill="transparent" 
-                    stroke="#f59e0b" 
-                    strokeWidth="16" 
-                    strokeDasharray="251.2" 
-                    strokeDashoffset="213" 
-                    className="transform origin-center rotate-[306deg] hover:opacity-80 transition-opacity cursor-pointer"
-                />
-             </svg>
-             {/* Center Text */}
-             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-3xl font-mono font-bold text-slate-800 tracking-tighter">22:56</span>
-                 <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Total Hours</span>
-             </div>
-        </div>
-    );
-};
 
 export default ReportsView;

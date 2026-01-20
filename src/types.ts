@@ -8,6 +8,7 @@ export interface Project {
   id: string;
   name: string;
   client: string;
+  clientId?: string | null;
   color: string; // Tailwind class mostly, or hex
   hoursUsed: number;
   hoursTotal: number;

@@ -8,7 +8,8 @@ import {
   ArrowUpDown,
   Plus,
   Loader2,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { Project, Client } from '@/types';
 import { 
@@ -35,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createProject, deleteProject } from '@/server/actions/projects';
+import { createProject, deleteProject, updateProject } from '@/server/actions/projects';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -178,7 +179,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, 
             </thead>
             <tbody className="divide-y divide-slate-100">
               {projects.map((project) => (
-                <ProjectRow key={project.id} project={project} />
+                <ProjectRow key={project.id} project={project} clients={clients} />
               ))}
             </tbody>
           </table>
@@ -216,8 +217,14 @@ const SortableHeader: React.FC<{label: string}> = ({ label }) => (
     </th>
 );
 
-const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
+interface ProjectRowProps {
+  project: Project;
+  clients: Client[];
+}
+
+const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
     const [isPending, startTransition] = useTransition();
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     const handleDelete = async () => {
       if (confirm(`Are you sure you want to delete project "${project.name}"? This will also delete all associated time entries.`)) {
@@ -225,6 +232,20 @@ const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
           await deleteProject(project.id);
         });
       }
+    };
+
+    const handleEditProject = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const formData = new FormData(e.currentTarget);
+      
+      startTransition(async () => {
+        const result = await updateProject(project.id, formData);
+        if (result.success) {
+          setIsEditDialogOpen(false);
+        } else {
+          alert(result.error || 'Failed to update project');
+        }
+      });
     };
 
     return (
@@ -263,12 +284,63 @@ const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)} className="cursor-pointer">
+                          <Pencil size={14} className="mr-2" />
+                          Edit Project
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={handleDelete} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer">
                           <Trash2 size={14} className="mr-2" />
                           Delete Project
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+
+                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Edit Project</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleEditProject} className="space-y-4 py-4 text-left">
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-name">Project Name</Label>
+                            <Input id="edit-name" name="name" defaultValue={project.name} required disabled={isPending} />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-clientId">Client</Label>
+                            <Select name="clientId" defaultValue={project.clientId || "none"} disabled={isPending}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a client" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Client</SelectItem>
+                                {clients.map(client => (
+                                  <SelectItem key={client.id} value={client.id}>
+                                    {client.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-budgetLimit">Budget Limit (Hours)</Label>
+                            <Input id="edit-budgetLimit" name="budgetLimit" type="number" step="0.5" defaultValue={project.hoursTotal} disabled={isPending} />
+                            <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
+                          </div>
+
+                          <DialogFooter className="pt-4">
+                            <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isPending}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700">
+                              {isPending ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                              Save Changes
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                 </div>
             </td>
         </tr>

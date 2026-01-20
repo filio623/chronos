@@ -17,13 +17,19 @@ interface MainDashboardProps {
   initialClients: Client[];
   initialEntries: TimeEntry[];
   activeTimer: TimeEntry | null;
+  reportData: {
+    summary: any;
+    dailyActivity: any[];
+    projectDistribution: any[];
+  };
 }
 
 export default function MainDashboard({
   initialProjects,
   initialClients,
   initialEntries,
-  activeTimer
+  activeTimer,
+  reportData
 }: MainDashboardProps) {
   const [currentView, setCurrentView] = useState('timesheet');
   const [isRunning, setIsRunning] = useState(!!activeTimer);
@@ -140,7 +146,7 @@ export default function MainDashboard({
 
             {currentView === 'clients' && <ClientsList clients={initialClients} />}
 
-            {currentView === 'reports' && <ReportsView />}
+            {currentView === 'reports' && <ReportsView data={reportData} />}
 
             <div className="h-10"></div>
         </div>

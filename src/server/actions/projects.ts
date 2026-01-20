@@ -49,3 +49,29 @@ export async function deleteProject(id: string) {
     return { success: false, error: "Failed to delete project" };
   }
 }
+
+export async function updateProject(id: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const clientId = formData.get("clientId") as string;
+  const budgetLimit = parseFloat(formData.get("budgetLimit") as string) || 0;
+  
+  if (!name) throw new Error("Project name is required");
+
+  try {
+    await prisma.project.update({
+      where: { id },
+      data: {
+        name,
+        clientId: clientId === 'none' ? null : clientId,
+        budgetLimit,
+      },
+    });
+
+    revalidatePath("/projects");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update project:", error);
+    return { success: false, error: "Failed to update project" };
+  }
+}

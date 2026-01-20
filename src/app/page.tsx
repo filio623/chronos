@@ -2,7 +2,8 @@ import MainDashboard from "@/components/custom/MainDashboard";
 import { getProjects } from "@/server/data/projects";
 import { getClients } from "@/server/data/clients";
 import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
-import { format } from "date-fns";
+import { getSummaryMetrics, getDailyActivity, getProjectDistribution } from "@/server/data/reports";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Project, Client, TimeEntry } from "@/types";
 
 /**
@@ -16,6 +17,7 @@ const mapProject = (p: any): Project => {
     id: p.id,
     name: p.name,
     client: p.client?.name || "No Client",
+    clientId: p.clientId,
     color: p.color,
     hoursUsed: parseFloat(totalHours.toFixed(2)),
     hoursTotal: p.budgetLimit,
@@ -50,12 +52,27 @@ const mapEntry = (e: any): TimeEntry => {
 };
 
 export default async function Home() {
+  // Default range: Last 30 days
+  const endDate = endOfDay(new Date());
+  const startDate = startOfDay(subDays(endDate, 30));
+
   // Fetch data in parallel
-  const [projectsData, clientsData, entriesData, activeTimerData] = await Promise.all([
+  const [
+    projectsData, 
+    clientsData, 
+    entriesData, 
+    activeTimerData,
+    summaryMetrics,
+    dailyActivity,
+    projectDistribution
+  ] = await Promise.all([
     getProjects(),
     getClients(),
     getTimeEntries(),
-    getActiveTimer()
+    getActiveTimer(),
+    getSummaryMetrics(startDate, endDate),
+    getDailyActivity(startDate, endDate),
+    getProjectDistribution(startDate, endDate)
   ]);
 
   // Map to UI types
@@ -70,6 +87,11 @@ export default async function Home() {
       initialClients={clients}
       initialEntries={entries}
       activeTimer={activeTimer}
+      reportData={{
+        summary: summaryMetrics,
+        dailyActivity,
+        projectDistribution
+      }}
     />
   );
 }
