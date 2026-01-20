@@ -8,14 +8,15 @@ import {
   Users,
   CalendarDays
 } from 'lucide-react';
-import { MOCK_PROJECTS } from '@/constants';
+import { Project } from '@/types';
 
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  projects: Project[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }) => {
   return (
     <aside className="w-[250px] bg-slate-50 border-r border-slate-200 h-screen flex flex-col fixed left-0 top-0 z-20">
       {/* Header */}
@@ -73,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Your Retainers</h3>
       </div>
       <div className="px-2 space-y-0.5 flex-1 overflow-y-auto">
-        {MOCK_PROJECTS.slice(0, 3).map((project) => (
+        {projects.slice(0, 3).map((project) => (
           <button 
             key={project.id}
             className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors text-left group"

@@ -46,6 +46,7 @@
 *   Use `search_file_content` instead of `grep`.
 *   Use `list_directory` to explore structure.
 *   Clean up temporary files after use.
+*   **Auto-confirm Shell Commands:** When running shell commands like `npm install`, `npx`, or apt, always include flags like `-y`, `--yes`, or `--no-interactive` to prevent blocking on user input.
 
 ## File Structure Standards
 
@@ -56,9 +57,23 @@
 *   **`src/types/`**: Shared TypeScript definitions.
 
 ## Project Memory (Current State)
+
 *   **Phase 1 (Foundation):** Next.js app initialized.
+
 *   **UI Port:** Custom components ported from React/Vite to Next.js structure.
+
+*   **Phase 2 (Core Data):**
+
+    *   Prisma 6 Schema defined and migrated to Neon DB.
+
+    *   Database connection established via `.env`.
+
+    *   Prisma Client singleton implemented in `src/lib/prisma.ts`.
+
 *   **Pending:**
-    *   Fixing import paths in `src/components/custom/*`.
-    *   Setting up Prisma Schema.
-    *   Connecting to Neon DB.
+
+    *   Implementing Server Actions to fetch real data.
+
+    *   Replacing mock data in UI with DB data.
+
+    *   Setting up Authentication.

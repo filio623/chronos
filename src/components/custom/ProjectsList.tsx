@@ -1,23 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import { 
   Search, 
   ChevronDown, 
   MoreVertical, 
   Star, 
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  Plus,
+  Loader2
 } from 'lucide-react';
-import { MOCK_PROJECTS } from '@/constants';
-import { Project } from '@/types';
+import { Project, Client } from '@/types';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { createProject } from '@/server/actions/projects';
 
-const ProjectsList: React.FC = () => {
+interface ProjectsListProps {
+  projects: Project[];
+  clients: Client[];
+}
+
+const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, clients }) => {
   const [filterText, setFilterText] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  // Simple filtering logic
-  const projects = MOCK_PROJECTS.filter(p => 
+  const projects = initialProjects.filter(p => 
     p.name.toLowerCase().includes(filterText.toLowerCase()) || 
     p.client.toLowerCase().includes(filterText.toLowerCase())
   );
+
+  const handleCreateProject = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    startTransition(async () => {
+      const result = await createProject(formData);
+      if (result.success) {
+        setIsDialogOpen(false);
+      } else {
+        alert(result.error || 'Failed to create project');
+      }
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -25,9 +65,58 @@ const ProjectsList: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-semibold text-slate-800">Projects</h2>
-        <button className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors shadow-sm">
-          Create new project
-        </button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+              <Plus size={16} className="mr-2" />
+              Create new project
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Create New Project</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateProject} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Project Name</Label>
+                <Input id="name" name="name" placeholder="e.g. Website Redesign" required disabled={isPending} />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="clientId">Client</Label>
+                <Select name="clientId" disabled={isPending}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="budgetLimit">Budget Limit (Hours)</Label>
+                <Input id="budgetLimit" name="budgetLimit" type="number" step="0.5" placeholder="e.g. 10" disabled={isPending} />
+                <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700">
+                  {isPending ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                  Create Project
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filter Bar */}
@@ -139,7 +228,7 @@ const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
                 <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div 
                         className={`h-full rounded-full ${project.hoursUsed > project.hoursTotal ? 'bg-rose-500' : 'bg-emerald-500'}`} 
-                        style={{ width: `${Math.min(100, (project.hoursUsed / project.hoursTotal) * 100)}%` }}
+                        style={{ width: `${project.hoursTotal > 0 ? Math.min(100, (project.hoursUsed / project.hoursTotal) * 100) : 0}%` }}
                     ></div>
                 </div>
             </td>

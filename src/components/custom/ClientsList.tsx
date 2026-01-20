@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import { 
   Search, 
   ChevronDown, 
   MoreVertical, 
-  Pencil
+  Pencil,
+  Loader2
 } from 'lucide-react';
-import { MOCK_CLIENTS } from '@/constants';
 import { Client } from '@/types';
+import { createClient } from '@/server/actions/clients';
 
-const ClientsList: React.FC = () => {
+interface ClientsListProps {
+  clients: Client[];
+}
+
+const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients }) => {
   const [filterText, setFilterText] = useState('');
   const [newClientName, setNewClientName] = useState('');
+  const [isPending, startTransition] = useTransition();
 
-  const clients = MOCK_CLIENTS.filter(c => 
+  const filteredClients = initialClients.filter(c => 
     c.name.toLowerCase().includes(filterText.toLowerCase())
   );
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName.trim() || isPending) return;
+
+    const formData = new FormData();
+    formData.append('name', newClientName);
+
+    startTransition(async () => {
+      const result = await createClient(formData);
+      if (result.success) {
+        setNewClientName('');
+      } else {
+        alert(result.error || 'Failed to create client');
+      }
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -44,18 +67,24 @@ const ClientsList: React.FC = () => {
         </div>
 
         {/* Right: Add Client */}
-        <div className="flex w-full xl:w-auto gap-0 shadow-sm rounded-md">
+        <form onSubmit={handleAddClient} className="flex w-full xl:w-auto gap-0 shadow-sm rounded-md">
             <input 
                 type="text" 
+                name="name"
                 placeholder="Add new Client"
-                className="flex-1 xl:w-64 px-4 py-2 text-sm border border-r-0 border-slate-200 rounded-l-md outline-none focus:z-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+                disabled={isPending}
+                className="flex-1 xl:w-64 px-4 py-2 text-sm border border-r-0 border-slate-200 rounded-l-md outline-none focus:z-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 disabled:bg-slate-50"
                 value={newClientName}
                 onChange={(e) => setNewClientName(e.target.value)}
             />
-            <button className="px-6 py-2 bg-sky-400 text-white text-sm font-semibold rounded-r-md hover:bg-sky-500 transition-colors uppercase tracking-wide">
-                Add
+            <button 
+                type="submit"
+                disabled={isPending}
+                className="px-6 py-2 bg-sky-400 text-white text-sm font-semibold rounded-r-md hover:bg-sky-500 transition-colors uppercase tracking-wide disabled:bg-sky-300 flex items-center justify-center min-w-[80px]"
+            >
+                {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Add'}
             </button>
-        </div>
+        </form>
       </div>
 
       {/* Table Container */}

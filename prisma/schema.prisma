@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum BudgetType {
+  HOURS
+  FEES
+}
+
+enum BudgetReset {
+  NEVER
+  MONTHLY
+}
+
+enum ProjectAccess {
+  PUBLIC
+  PRIVATE
+}
+
+// Models
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String   // Could be linked to a User model later if using Auth
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients   Client[]
+  projects  Project[]
+  tags      Tag[]
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  currency    String   @default("USD")
+  defaultRate Float?
+  
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  
+  projects    Project[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  color       String        @default("text-slate-600") // Hex or Tailwind class
+  isFavorite  Boolean       @default(false)
+  isArchived  Boolean       @default(false)
+  access      ProjectAccess @default(PUBLIC)
+  
+  // Budget Logic
+  budgetType  BudgetType    @default(HOURS)
+  budgetReset BudgetReset   @default(NEVER)
+  budgetLimit Float         @default(0) // 0 means no limit
+  hourlyRate  Float?
+
+  // Relations
+  clientId    String?
+  client      Client?       @relation(fields: [clientId], references: [id])
+  
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  
+  timeEntries TimeEntry[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model TimeEntry {
+  id          String    @id @default(uuid())
+  description String?
+  
+  startTime   DateTime
+  endTime     DateTime? // Nullable if timer is currently running
+  duration    Int?      // Calculated seconds. Null if running.
+  
+  isBillable  Boolean   @default(true)
+  
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+
+  tags        Tag[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Indexes for performance
+  @@index([projectId])
+  @@index([startTime])
+}
+
+model Tag {
+  id          String      @id @default(uuid())
+  name        String
+  color       String?
+  
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id])
+  
+  timeEntries TimeEntry[]
+}

@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { TimeEntry, Project } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
-import { MOCK_PROJECTS } from '@/constants';
 
 interface TrackerListProps {
   entries: TimeEntry[];
+  projects: Project[];
   onRestart: (entry: TimeEntry) => void;
 }
 
-const TrackerList: React.FC<TrackerListProps> = ({ entries, onRestart }) => {
+const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart }) => {
   
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -70,7 +70,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, onRestart }) => {
           {/* List Card */}
           <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
              {group.entries.map((entry) => {
-                 const project = MOCK_PROJECTS.find(p => p.id === entry.projectId);
+                 const project = projects.find(p => p.id === entry.projectId);
                  return (
                     <TimeEntryRow 
                         key={entry.id} 

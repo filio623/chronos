@@ -1,117 +1,75 @@
-"use client";
+import MainDashboard from "@/components/custom/MainDashboard";
+import { getProjects } from "@/server/data/projects";
+import { getClients } from "@/server/data/clients";
+import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
+import { format } from "date-fns";
+import { Project, Client, TimeEntry } from "@/types";
 
-import React, { useState, useEffect } from 'react';
-import Sidebar from '@/components/custom/Sidebar';
-import TimerBar from '@/components/custom/TimerBar';
-import BudgetCard from '@/components/custom/BudgetCard';
-import TrackerList from '@/components/custom/TrackerList';
-import ProjectsList from '@/components/custom/ProjectsList';
-import ClientsList from '@/components/custom/ClientsList';
-import ReportsView from '@/components/custom/ReportsView';
-import TimesheetView from '@/components/custom/TimesheetView';
-import { MOCK_PROJECTS, MOCK_TIME_ENTRIES } from '@/constants';
-import { Project, TimeEntry } from '@/types';
+/**
+ * Mappers to convert Prisma models to our UI Types
+ */
+const mapProject = (p: any): Project => {
+  const totalSeconds = p.timeEntries?.reduce((acc: number, entry: any) => acc + (entry.duration || 0), 0) || 0;
+  const totalHours = totalSeconds / 3600;
 
-export default function Home() {
-  const [currentView, setCurrentView] = useState('timesheet'); // Default to show new feature
-  const [isRunning, setIsRunning] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(5025); // Start with some time for demo
-  const [activeProject, setActiveProject] = useState<Project | null>(MOCK_PROJECTS[0]);
-
-  // Timer Effect
-  useEffect(() => {
-    let interval: number | undefined;
-    if (isRunning) {
-      interval = window.setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning]);
-
-  const handleRestartTask = (entry: TimeEntry) => {
-    setIsRunning(true);
-    // In a real app, this would set the task input value
-    const project = MOCK_PROJECTS.find(p => p.id === entry.projectId);
-    if(project) setActiveProject(project);
+  return {
+    id: p.id,
+    name: p.name,
+    client: p.client?.name || "No Client",
+    color: p.color,
+    hoursUsed: parseFloat(totalHours.toFixed(2)),
+    hoursTotal: p.budgetLimit,
+    isFavorite: p.isFavorite,
   };
+};
+
+const mapClient = (c: any): Client => ({
+  id: c.id,
+  name: c.name,
+  address: c.address,
+  currency: c.currency,
+});
+
+const mapEntry = (e: any): TimeEntry => {
+  const durationSeconds = e.duration || 0;
+  const hours = Math.floor(durationSeconds / 3600);
+  const minutes = Math.floor((durationSeconds % 3600) / 60);
+  const seconds = durationSeconds % 60;
+  
+  return {
+    id: e.id,
+    description: e.description || "",
+    projectId: e.projectId || "",
+    date: format(e.startTime, "yyyy-MM-dd"),
+    startTime: format(e.startTime, "hh:mm a"),
+    endTime: e.endTime ? format(e.endTime, "hh:mm a") : "Running...",
+    duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
+    durationSeconds: durationSeconds,
+    isBillable: e.isBillable,
+  };
+};
+
+export default async function Home() {
+  // Fetch data in parallel
+  const [projectsData, clientsData, entriesData, activeTimerData] = await Promise.all([
+    getProjects(),
+    getClients(),
+    getTimeEntries(),
+    getActiveTimer()
+  ]);
+
+  // Map to UI types
+  const projects = projectsData.map(mapProject);
+  const clients = clientsData.map(mapClient);
+  const entries = entriesData.map(mapEntry);
+  const activeTimer = activeTimerData ? mapEntry(activeTimerData) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
-      
-      {/* Sidebar - Fixed width */}
-      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
-
-      {/* Main Content - Flex Grow */}
-      <main className="flex-1 ml-[250px] min-w-0 flex flex-col h-screen">
-        
-        {/* Sticky Timer Bar */}
-        <TimerBar 
-            activeProject={activeProject} 
-            isRunning={isRunning} 
-            setIsRunning={setIsRunning}
-            elapsedSeconds={elapsedSeconds}
-        />
-
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 scroll-smooth">
-            
-            {/* Dashboard View */}
-            {currentView === 'dashboard' && (
-              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Budget Overview</h2>
-                      <span className="text-xs font-medium text-slate-400">Updated just now</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                      {MOCK_PROJECTS.slice(0, 3).map((proj) => (
-                          <BudgetCard key={proj.id} project={proj} />
-                      ))}
-                  </div>
-              </section>
-            )}
-
-            {/* Timesheet View */}
-            {currentView === 'timesheet' && (
-              <TimesheetView />
-            )}
-
-            {/* Tracker View */}
-            {currentView === 'tracker' && (
-              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Time Entries</h2>
-                  </div>
-                  <TrackerList 
-                      entries={MOCK_TIME_ENTRIES}
-                      onRestart={handleRestartTask}
-                  />
-              </section>
-            )}
-
-            {/* Projects View */}
-            {currentView === 'projects' && (
-              <ProjectsList />
-            )}
-
-            {/* Clients View */}
-            {currentView === 'clients' && (
-              <ClientsList />
-            )}
-
-            {/* Reports View */}
-            {currentView === 'reports' && (
-              <ReportsView />
-            )}
-
-            {/* Bottom Spacer */}
-            <div className="h-10"></div>
-        </div>
-      </main>
-
-    </div>
+    <MainDashboard 
+      initialProjects={projects}
+      initialClients={clients}
+      initialEntries={entries}
+      activeTimer={activeTimer}
+    />
   );
 }
