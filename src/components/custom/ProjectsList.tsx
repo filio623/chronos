@@ -7,7 +7,8 @@ import {
   Filter,
   ArrowUpDown,
   Plus,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { Project, Client } from '@/types';
 import { 
@@ -28,7 +29,13 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { createProject } from '@/server/actions/projects';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createProject, deleteProject } from '@/server/actions/projects';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -210,8 +217,18 @@ const SortableHeader: React.FC<{label: string}> = ({ label }) => (
 );
 
 const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
+    const [isPending, startTransition] = useTransition();
+
+    const handleDelete = async () => {
+      if (confirm(`Are you sure you want to delete project "${project.name}"? This will also delete all associated time entries.`)) {
+        startTransition(async () => {
+          await deleteProject(project.id);
+        });
+      }
+    };
+
     return (
-        <tr className="group hover:bg-slate-50/80 transition-colors text-sm text-slate-700">
+        <tr className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''}`}>
             <td className="px-4 py-3 text-center">
                  <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20" />
             </td>
@@ -227,7 +244,7 @@ const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
             <td className="px-4 py-3">
                 <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div 
-                        className={`h-full rounded-full ${project.hoursUsed > project.hoursTotal ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                        className={`h-full rounded-full ${project.hoursUsed > project.hoursTotal && project.hoursTotal > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`} 
                         style={{ width: `${project.hoursTotal > 0 ? Math.min(100, (project.hoursUsed / project.hoursTotal) * 100) : 0}%` }}
                     ></div>
                 </div>
@@ -238,9 +255,20 @@ const ProjectRow: React.FC<{project: Project}> = ({ project }) => {
                     <button className={`${project.isFavorite ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400'}`}>
                         <Star size={16} fill={project.isFavorite ? "currentColor" : "none"} />
                     </button>
-                    <button className="text-slate-300 hover:text-slate-600">
-                        <MoreVertical size={16} />
-                    </button>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="text-slate-300 hover:text-slate-600">
+                            {isPending ? <Loader2 size={16} className="animate-spin" /> : <MoreVertical size={16} />}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleDelete} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer">
+                          <Trash2 size={14} className="mr-2" />
+                          Delete Project
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </td>
         </tr>

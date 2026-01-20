@@ -1,6 +1,6 @@
-# Technical Documentation: Retainer-Tracker
+# Retainer-Tracker: Technical Architecture & Developer Guide
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Date:** January 20, 2026
 **Status:** Alpha (Core Data & Tracking Implementation Complete)
 
@@ -22,6 +22,8 @@ graph TD
         API -- "createClient()" --> DB
         API -- "createProject()" --> DB
         API -- "startTimer()" --> DB
+        API -- "logManualTimeEntry()" --> DB
+        API -- "deleteTimeEntry()" --> DB
     end
     
     subgraph "Read Operations"
@@ -138,7 +140,13 @@ The timer is not just client-side state; it persists to the DB immediately.
     *   `stopTimer(id)` Server Action is called.
     *   Calculates `duration = now - startTime` and saves it to DB.
 
-### 4.2 Budget Aggregation
+### 4.2 Manual Time Entry
+For post-hoc logging, we use `logManualTimeEntry()`:
+*   User supplies `date`, `startTime`, `endTime`.
+*   Server constructs `Date` objects and calculates `duration = end - start`.
+*   Stores the entry with `isBillable` flag.
+
+### 4.3 Budget Aggregation
 We do not store a running total on the Project model (to avoid drift). Instead, we calculate it on read.
 
 **Code Path:** `src/server/data/projects.ts`
@@ -152,6 +160,11 @@ const projects = await prisma.project.findMany({
 hoursUsed = entries.reduce((sum, e) => sum + e.duration, 0) / 3600;
 ```
 *Note: For scale (10k+ entries), this will move to a raw SQL `GROUP BY` query.*
+
+### 4.4 Interaction Patterns (React 19)
+The app heavily utilizes the `useTransition` hook for all DB mutations.
+*   **Why:** Provides a non-blocking way to handle server actions while keeping the UI responsive.
+*   **Implementation:** `isPending` states are used to show spinners (`Loader2`) and dim rows during deletion/creation, providing immediate visual feedback to the user.
 
 ---
 
@@ -170,7 +183,7 @@ hoursUsed = entries.reduce((sum, e) => sum + e.duration, 0) / 3600;
 
 ---
 
-## 6. Current Limitations (v2.0)
-*   **Auth:** Currently uses a "System User". NextAuth implementation is pending.
-*   **Performance:** `hoursUsed` calculation is done in application memory (O(n)). Will need optimization for massive datasets.
-*   **Timezones:** Dates are stored in UTC but displayed in local browser time. Grouping by "Today" relies on browser logic.
+## 6. Next Steps & Roadmap
+*   **Phase 4: Reports & Analytics:** Implementation of Recharts for visual timeline analysis.
+*   **Phase 5: Authentication:** Integrating `Better-Auth` for multi-user support.
+*   **Phase 6: Multi-tenancy:** Fully enabling the `Workspace` model for team collaboration.

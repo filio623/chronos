@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useTransition } from 'react';
 import { TimeEntry, Project } from '@/types';
-import { Play, DollarSign, Tag, MoreVertical, Calendar } from 'lucide-react';
+import { Play, DollarSign, Tag, MoreVertical, Calendar, Trash2, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { deleteTimeEntry } from '@/server/actions/time-entries';
 
 interface TimeEntryRowProps {
   entry: TimeEntry;
@@ -9,8 +16,18 @@ interface TimeEntryRowProps {
 }
 
 const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, onRestart }) => {
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this time entry?")) {
+      startTransition(async () => {
+        await deleteTimeEntry(entry.id);
+      });
+    }
+  };
+
   return (
-    <div className="group flex items-center justify-between py-3 px-4 bg-white border-b border-slate-100 hover:bg-slate-50 transition-all">
+    <div className={`group flex items-center justify-between py-3 px-4 bg-white border-b border-slate-100 hover:bg-slate-50 transition-all ${isPending ? 'opacity-50 grayscale' : ''}`}>
       
       {/* Left Side: Description & Project Info */}
       <div className="flex items-center gap-4 flex-1 min-w-0 mr-4">
@@ -76,15 +93,26 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, onRestart }
         <div className="flex items-center gap-1">
             <button 
                 onClick={() => onRestart(entry)}
-                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                disabled={isPending}
+                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50"
                 title="Restart"
             >
                 <Play size={18} fill="currentColor" className="opacity-80" />
             </button>
             
-            <button className="p-1.5 text-slate-300 hover:text-slate-600 rounded-md transition-colors">
-                <MoreVertical size={16} />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-1.5 text-slate-300 hover:text-slate-600 rounded-md transition-colors" disabled={isPending}>
+                    {isPending ? <Loader2 size={16} className="animate-spin" /> : <MoreVertical size={16} />}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleDelete} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer">
+                  <Trash2 size={14} className="mr-2" />
+                  Delete Entry
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </div>
     </div>

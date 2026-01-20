@@ -35,3 +35,17 @@ export async function createProject(formData: FormData) {
     return { success: false, error: "Failed to create project" };
   }
 }
+
+export async function deleteProject(id: string) {
+  try {
+    await prisma.project.delete({
+      where: { id }
+    });
+    revalidatePath("/projects");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete project:", error);
+    return { success: false, error: "Failed to delete project" };
+  }
+}

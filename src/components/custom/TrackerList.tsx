@@ -1,6 +1,27 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useTransition } from 'react';
 import { TimeEntry, Project } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
+import { Plus, Loader2 } from 'lucide-react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { logManualTimeEntry } from '@/server/actions/time-entries';
 
 interface TrackerListProps {
   entries: TimeEntry[];
@@ -9,6 +30,8 @@ interface TrackerListProps {
 }
 
 const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart }) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -53,36 +76,140 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleManualLog = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const dateStr = formData.get('date') as string; // YYYY-MM-DD
+    const startStr = formData.get('startTime') as string; // HH:MM
+    const endStr = formData.get('endTime') as string; // HH:MM
+    
+    const start = new Date(`${dateStr}T${startStr}`);
+    const end = new Date(`${dateStr}T${endStr}`);
+    
+    startTransition(async () => {
+      const result = await logManualTimeEntry({
+        projectId: formData.get('projectId') === 'none' ? null : (formData.get('projectId') as string),
+        description: formData.get('description') as string,
+        startTime: start,
+        endTime: end,
+        isBillable: formData.get('billable') === 'on',
+      });
+
+      if (result.success) {
+        setIsDialogOpen(false);
+      } else {
+        alert(result.error || 'Failed to log entry');
+      }
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {groupedEntries.map((group) => (
-        <div key={group.date} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          
-          {/* Date Header */}
-          <div className="flex items-end justify-between px-1 mb-2">
-             <span className="text-sm font-medium text-slate-500">{formatDateHeader(group.date)}</span>
-             <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Total:</span>
-                <span className="text-sm font-bold text-slate-600 font-mono">{formatTotalDuration(group.entries)}</span>
-             </div>
-          </div>
+      <div className="flex justify-end">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-slate-600 border-slate-200">
+              <Plus size={14} className="mr-2" />
+              Log Time Manually
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Log Time Manually</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleManualLog} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">What did you work on?</Label>
+                <Input id="description" name="description" placeholder="Short description..." required disabled={isPending} />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="projectId">Project</Label>
+                <Select name="projectId" disabled={isPending} defaultValue="none">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Project</SelectItem>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* List Card */}
-          <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
-             {group.entries.map((entry) => {
-                 const project = projects.find(p => p.id === entry.projectId);
-                 return (
-                    <TimeEntryRow 
-                        key={entry.id} 
-                        entry={entry} 
-                        project={project}
-                        onRestart={onRestart}
-                    />
-                 );
-             })}
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required disabled={isPending} />
+                </div>
+                <div className="flex items-center gap-2 pt-8">
+                  <Checkbox id="billable" name="billable" defaultChecked />
+                  <Label htmlFor="billable">Billable</Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startTime">Start Time</Label>
+                  <Input id="startTime" name="startTime" type="time" required disabled={isPending} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endTime">End Time</Label>
+                  <Input id="endTime" name="endTime" type="time" required disabled={isPending} />
+                </div>
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700">
+                  {isPending ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                  Save Entry
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {groupedEntries.length === 0 ? (
+        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+          No time entries yet.
         </div>
-      ))}
+      ) : (
+        groupedEntries.map((group) => (
+          <div key={group.date} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Date Header */}
+            <div className="flex items-end justify-between px-1 mb-2">
+               <span className="text-sm font-medium text-slate-500">{formatDateHeader(group.date)}</span>
+               <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Total:</span>
+                  <span className="text-sm font-bold text-slate-600 font-mono">{formatTotalDuration(group.entries)}</span>
+               </div>
+            </div>
+
+            {/* List Card */}
+            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+               {group.entries.map((entry) => {
+                   const project = projects.find(p => p.id === entry.projectId);
+                   return (
+                      <TimeEntryRow 
+                          key={entry.id} 
+                          entry={entry} 
+                          project={project}
+                          onRestart={onRestart}
+                      />
+                   );
+               })}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 };
