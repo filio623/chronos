@@ -1,9 +1,33 @@
 import prisma from "@/lib/prisma";
 import { Project } from "@prisma/client";
 
-export async function getProjects(): Promise<Project[]> {
+export async function getProjects(filters?: {
+  clientId?: string;
+  status?: 'active' | 'archived';
+  search?: string;
+}) {
+  const where: any = {};
+
+  if (filters?.clientId) {
+    where.clientId = filters.clientId;
+  }
+
+  if (filters?.status === 'archived') {
+    where.isArchived = true;
+  } else if (filters?.status === 'active') {
+    where.isArchived = false;
+  }
+
+  if (filters?.search) {
+    where.OR = [
+      { name: { contains: filters.search, mode: 'insensitive' } },
+      { client: { name: { contains: filters.search, mode: 'insensitive' } } },
+    ];
+  }
+
   try {
     const projects = await prisma.project.findMany({
+      where,
       include: {
         client: true,
         timeEntries: true, // Fetch entries to sum duration

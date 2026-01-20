@@ -51,10 +51,21 @@ const mapEntry = (e: any): TimeEntry => {
   };
 };
 
-export default async function Home() {
+export default async function Home(props: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const searchParams = await props.searchParams;
+  
   // Default range: Last 30 days
   const endDate = endOfDay(new Date());
   const startDate = startOfDay(subDays(endDate, 30));
+
+  // Parse filters
+  const projectFilters = {
+    search: typeof searchParams?.search === 'string' ? searchParams.search : undefined,
+    clientId: typeof searchParams?.client === 'string' ? searchParams.client : undefined,
+    status: typeof searchParams?.status === 'string' ? (searchParams.status as 'active' | 'archived') : 'active',
+  };
 
   // Fetch data in parallel
   const [
@@ -66,7 +77,7 @@ export default async function Home() {
     dailyActivity,
     projectDistribution
   ] = await Promise.all([
-    getProjects(),
+    getProjects(projectFilters),
     getClients(),
     getTimeEntries(),
     getActiveTimer(),

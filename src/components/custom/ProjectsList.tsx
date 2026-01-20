@@ -1,4 +1,4 @@
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
 import { 
   Search, 
   ChevronDown, 
@@ -9,51 +9,55 @@ import {
   Plus,
   Loader2,
   Trash2,
-  Pencil
+  Pencil,
+  X
 } from 'lucide-react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Project, Client } from '@/types';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createProject, deleteProject, updateProject } from '@/server/actions/projects';
+// ... imports
+
+// ...
 
 interface ProjectsListProps {
   projects: Project[];
   clients: Client[];
 }
 
-const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, clients }) => {
-  const [filterText, setFilterText] = useState('');
+const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  
+  const [filterText, setFilterText] = useState(searchParams.get('search') || '');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const projects = initialProjects.filter(p => 
-    p.name.toLowerCase().includes(filterText.toLowerCase()) || 
-    p.client.toLowerCase().includes(filterText.toLowerCase())
-  );
+  // Debounce search update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+      if (filterText) {
+        params.set('search', filterText);
+      } else {
+        params.delete('search');
+      }
+      router.replace(`${pathname}?${params.toString()}`);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filterText, router, pathname, searchParams]);
+
+  const handleClientFilter = (clientId: string | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (clientId) {
+      params.set('client', clientId);
+    } else {
+      params.delete('client');
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   const handleCreateProject = async (e: React.FormEvent<HTMLFormElement>) => {
+    // ... same as before
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -66,6 +70,8 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, 
       }
     });
   };
+
+  const currentClientId = searchParams.get('client');
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -81,6 +87,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, 
               Create new project
             </Button>
           </DialogTrigger>
+          {/* ... Dialog Content same as before ... */}
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
@@ -133,9 +140,41 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, 
         {/* Dropdowns Group */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
             <FilterButton label="Active" />
-            <FilterButton label="Client" />
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors whitespace-nowrap ${currentClientId ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  Client {currentClientId ? '(1)' : ''}
+                  <ChevronDown size={14} className="text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem onClick={() => handleClientFilter(null)}>
+                  All Clients
+                </DropdownMenuItem>
+                {clients.map(client => (
+                  <DropdownMenuItem key={client.id} onClick={() => handleClientFilter(client.id)}>
+                    {client.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <FilterButton label="Access" />
             <FilterButton label="Billing" />
+            
+            {/* Clear Filters */}
+            {(filterText || currentClientId) && (
+               <button 
+                  onClick={() => {
+                    setFilterText('');
+                    router.replace(pathname);
+                  }}
+                  className="flex items-center gap-1 text-xs text-rose-500 hover:underline px-2"
+               >
+                 <X size={12} /> Clear
+               </button>
+            )}
         </div>
 
         {/* Divider for large screens */}
@@ -147,15 +186,12 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects: initialProjects, 
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input 
                     type="text" 
-                    placeholder="Find by name" 
+                    placeholder="Find by name..." 
                     className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-500 rounded-md outline-none transition-all placeholder:text-slate-400"
                     value={filterText}
                     onChange={(e) => setFilterText(e.target.value)}
                 />
             </div>
-            <button className="px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-md hover:bg-slate-50 hover:text-indigo-600 transition-colors uppercase tracking-wide text-xs">
-                Apply Filter
-            </button>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import ProjectsList from '@/components/custom/ProjectsList';
 import ClientsList from '@/components/custom/ClientsList';
 import ReportsView from '@/components/custom/ReportsView';
 import TimesheetView from '@/components/custom/TimesheetView';
+import TimeEntryRow from '@/components/custom/TimeEntryRow';
 import { Project, TimeEntry, Client } from '@/types';
 import { startTimer, stopTimer } from '@/server/actions/time-entries';
 
@@ -102,24 +103,60 @@ export default function MainDashboard({
         <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 scroll-smooth">
             
             {currentView === 'dashboard' && (
-              <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Budget Overview</h2>
-                      <span className="text-xs font-medium text-slate-400">Real-time DB Data</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                      {initialProjects.length > 0 ? (
-                        initialProjects.slice(0, 3).map((proj) => (
-                            <BudgetCard key={proj.id} project={proj} />
-                        ))
-                      ) : (
-                        <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400">
-                          No active projects found in database.
-                        </div>
-                      )}
-                  </div>
-              </section>
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* Budget Overview */}
+                  <section>
+                      <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Budget Overview</h2>
+                          <span className="text-xs font-medium text-slate-400">Real-time DB Data</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                          {initialProjects.length > 0 ? (
+                            initialProjects.slice(0, 3).map((proj) => (
+                                <BudgetCard key={proj.id} project={proj} />
+                            ))
+                          ) : (
+                            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400">
+                              No active projects found in database.
+                            </div>
+                          )}
+                      </div>
+                  </section>
+
+                  {/* Recent Activity */}
+                  <section>
+                      <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Recent Activity</h2>
+                          <button 
+                            onClick={() => setCurrentView('tracker')}
+                            className="text-xs font-medium text-indigo-600 hover:underline"
+                          >
+                            View All
+                          </button>
+                      </div>
+                      
+                      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                          {initialEntries.length > 0 ? (
+                            initialEntries.slice(0, 5).map((entry) => {
+                              const project = initialProjects.find(p => p.id === entry.projectId);
+                              return (
+                                <TimeEntryRow 
+                                  key={entry.id} 
+                                  entry={entry} 
+                                  project={project}
+                                  onRestart={handleRestartTask}
+                                />
+                              );
+                            })
+                          ) : (
+                            <div className="p-12 text-center text-slate-400">
+                              No recent activity. Start a timer to get moving!
+                            </div>
+                          )}
+                      </div>
+                  </section>
+              </div>
             )}
 
             {currentView === 'timesheet' && <TimesheetView />}
