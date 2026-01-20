@@ -103,10 +103,10 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients }) =>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {clients.map((client) => (
+              {filteredClients.map((client) => (
                 <ClientRow key={client.id} client={client} />
               ))}
-              {clients.length === 0 && (
+              {filteredClients.length === 0 && (
                 <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-400">
                         No clients found.

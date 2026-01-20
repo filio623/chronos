@@ -15,6 +15,7 @@ export interface Project {
   access?: 'Public' | 'Private';
   amount?: string;
   isFavorite?: boolean;
+  isArchived?: boolean;
 }
 
 export interface Client {

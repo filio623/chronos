@@ -1,395 +1,620 @@
-# Retainer-Tracker: Technical Architecture & Developer Guide
+# RetainerTracker: Technical Architecture Guide
 
-**Version:** 3.0.0
-**Date:** January 20, 2026
-**Author:** Gemini Agent (on behalf of James Filios)
-**Repository:** `https://github.com/filio623/time_tracker_app`
+**Version:** 3.0.0 | **Last Updated:** January 20, 2026
 
 ---
 
-# Table of Contents
+## Table of Contents
 
-1.  [Executive Overview](#1-executive-overview)
-    *   1.1 The Vision
-    *   1.2 The Core Problem: "The Overage Trap"
-    *   1.3 The Solution: Budget-First Tracking
-2.  [System Architecture](#2-system-architecture)
-    *   2.1 Technology Stack (The T3-Next Hybrid)
-    *   2.2 Application Architecture (The Colocation Strategy)
-    *   2.3 File Structure Deep Dive
-3.  [Database Architecture](#3-database-architecture)
-    *   3.1 Entity Relationship Diagram (ERD)
-    *   3.2 Schema Design & Key Decisions
-    *   3.3 The Prisma ORM Layer
-4.  [Backend Logic & Data Access](#4-backend-logic--data-access)
-    *   4.1 The "Two-Layer" Backend Pattern
-    *   4.2 Server Actions (The Mutation Layer)
-    *   4.3 The "Atomic Timer" Algorithm
-    *   4.4 Reporting & Aggregation Strategy
-5.  [Frontend Architecture](#5-frontend-architecture)
-    *   5.1 React Server Components (The Data Orchestrator)
-    *   5.2 Client Components & Interactivity
-    *   5.3 React 19 Patterns (Transitions & Pending States)
-    *   5.4 State Management Strategy
-6.  [Feature Implementation Deep Dives](#6-feature-implementation-deep-dives)
-    *   6.1 Real-time Budget Calculation
-    *   6.2 Advanced URL-Based Filtering
-    *   6.3 Manual Time Entry & Validation
-7.  [Developer Operations](#7-developer-operations)
-    *   7.1 Environment Setup
-    *   7.2 Database Management
-    *   7.3 Deployment Guide
-8.  [Future Roadmap & Next Steps](#8-future-roadmap--next-steps)
+1. [Executive Summary](#1-executive-summary)
+2. [Architecture Overview](#2-architecture-overview)
+3. [Technology Stack](#3-technology-stack)
+4. [Database Architecture](#4-database-architecture)
+5. [Backend Architecture](#5-backend-architecture)
+6. [Frontend Architecture](#6-frontend-architecture)
+7. [Data Flow & State Management](#7-data-flow--state-management)
+8. [Component & Action Reference](#8-component--action-reference)
+9. [Developer Operations](#9-developer-operations)
+10. [Future Roadmap](#10-future-roadmap)
 
 ---
 
-# 1. Executive Overview
+# 1. Executive Summary
 
-## 1.1 The Vision
-**Retainer-Tracker** is a specialized Enterprise SaaS application purpose-built for digital agencies, consultants, and freelancers who operate on a "Retainer" billing model.
+## What is RetainerTracker?
 
-Unlike generic time tracking tools (e.g., Toggl, Clockify, Harvest) which focus primarily on "logging hours," Retainer-Tracker flips the paradigm to focus on **"Remaining Budget"**.
+RetainerTracker is a **budget-first time tracking** application for agencies and freelancers on retainer billing models. Unlike traditional time trackers that focus on logging hours, RetainerTracker answers: *"How much budget do I have left before I work for free?"*
 
-The goal is to provide a dashboard that answers one critical financial question at a glance:
-> *"How much capacity do I have left for this client before I start working for free?"*
+```mermaid
+flowchart LR
+    subgraph Traditional["Traditional Time Tracker"]
+        A[Track Time] --> B[Log Hours] --> C[Invoice]
+        C --> D["😱 Surprise: 15h on 10h retainer"]
+    end
 
-## 1.2 The Core Problem: "The Overage Trap"
-Service providers often sell blocks of time (e.g., "10 hours per month for maintenance").
-*   **Visibility Gap:** They track time in one tool but manage contracts in another (or a spreadsheet).
-*   **The Surprise:** They only realize they've worked 15 hours on a 10-hour contract when they generate the invoice at the end of the month.
-*   **The Result:** 5 hours of unbillable work (revenue leakage) or an awkward conversation with the client.
+    subgraph RT["RetainerTracker"]
+        E[Track Time] <--> F[Budget Awareness]
+        F <--> G[Real-time Status]
+        G --> H["⚠️ Warning at 80%"]
+    end
+```
 
-## 1.3 The Solution: Budget-First Tracking
-Retainer-Tracker solves this by tightly coupling the **Timer** to the **Budget Limit**.
-*   **Visual Feedback:** As you track time, the project card changes color (Emerald → Amber → Rose) to warn of approaching limits.
-*   **Unified Workflow:** You don't "log time to a task"; you "log time against a budget."
-*   **Self-Hosted Sovereignty:** Built to be deployed on personal infrastructure (Synology NAS, Docker) or standard cloud (Vercel/Neon) to ensure data privacy and zero subscription fees.
+## Core Value Proposition
+
+| Problem | Solution |
+|---------|----------|
+| Budget blindness | Color-coded progress bars (green → amber → red) |
+| Scattered tools | Unified timer + budget + reporting |
+| Manual calculations | Automatic budget consumption tracking |
+| End-of-month surprises | Proactive warnings at 80%/100% thresholds |
 
 ---
 
-# 2. System Architecture
+# 2. Architecture Overview
 
-## 2.1 Technology Stack (The T3-Next Hybrid)
-We utilize a modern, type-safe stack designed for performance, developer experience, and maintainability.
+## System Architecture
 
-| Layer | Technology | Version | Rationale |
-| :--- | :--- | :--- | :--- |
-| **Framework** | **Next.js** | 15.1.0 | Utilizes the App Router and React Server Components (RSC) to fetch database data directly in the UI layer, eliminating the need for a separate REST API. |
-| **Language** | **TypeScript** | 5.x | Provides end-to-end type safety. The types generated from our Database Schema (`@prisma/client`) flow directly into our UI components. |
-| **Database** | **PostgreSQL** | 16 (Neon) | A robust relational database. We use **Neon** for its serverless capability (scales to zero) and branching features. |
-| **ORM** | **Prisma** | 7.2.0 | The interface between TypeScript and SQL. It handles migrations (`prisma migrate`) and query generation (`prisma client`). |
-| **Styling** | **Tailwind CSS** | 4.0 | A utility-first CSS framework that allows for rapid UI development and a consistent "Design System" via utility classes. |
-| **UI Library** | **Shadcn/UI** | Latest | A collection of accessible, re-usable components (Dialogs, Selects, Buttons) built on Radix UI primitives. |
-| **State** | **React Hooks** | 19 | Uses modern hooks like `useTransition` for handling server action states without heavy global state libraries (Redux). |
-| **Charts** | **Recharts** | Latest | A composable charting library built on D3, used for the Reporting layer. |
+```mermaid
+flowchart TB
+    subgraph Client["Browser (React 19)"]
+        CC[Client Components]
+    end
 
-## 2.2 Application Architecture (The Colocation Strategy)
-The architecture follows a **Domain-Driven Colocation** strategy. Instead of separating code by technical role (e.g., `controllers/`, `views/`), we group it by Next.js conventions and Feature Domains.
+    subgraph Server["Next.js 16 Server"]
+        SC[Server Components]
+        SA[Server Actions]
+        DAL[Data Access Layer]
+    end
 
-*   **The "Server" is the App:** There is no separate `express` server. Next.js handles both the HTTP serving (Frontend) and the Data Access (Backend) via **Server Actions**.
-*   **Zero-API Data Fetching:** We do not fetch data via `fetch('/api/projects')`. Instead, the Server Component calls the database function `getProjects()` directly during the render pass. This reduces latency and complexity.
+    subgraph DB["Neon PostgreSQL"]
+        PG[(Database)]
+    end
 
-## 2.3 File Structure Deep Dive
+    CC <-->|"HTTP/Streaming"| SC
+    CC -->|"Form Actions"| SA
+    SC --> DAL
+    SA --> DAL
+    DAL <-->|"Prisma ORM"| PG
+```
 
-```text
+## Zero-API Philosophy
+
+RetainerTracker uses **no REST endpoints** for data fetching. Server Components call database functions directly:
+
+```typescript
+// Server Component directly queries database
+const projects = await getProjects(filters);
+return <MainDashboard projects={projects} />;
+```
+
+## Directory Structure
+
+```
 src/
-├── app/                        # Next.js Routing Layer
-│   ├── api/                    # HTTP Endpoints (only for external webhooks/cron)
-│   ├── page.tsx                # The Homepage (Server Component). The data "Orchestrator".
-│   ├── layout.tsx              # Root HTML shell (Fonts, Metadata, Global Styles).
-│   └── globals.css             # Tailwind Directives & CSS Variables.
-│
+├── app/                    # Next.js App Router
+│   ├── page.tsx           # Server Component (data orchestrator)
+│   └── api/               # HTTP endpoints (webhooks only)
 ├── components/
-│   ├── ui/                     # "Dumb" UI Primitives (Buttons, Cards, Inputs).
-│   │   └── button.tsx          # Copy-pasted from Shadcn.
-│   └── custom/                 # "Smart" Domain Components.
-│       ├── MainDashboard.tsx   # The Client-Side Shell. Manages the 'View' state.
-│       ├── ProjectsList.tsx    # Complex UI with filtering and modals.
-│       ├── TimerBar.tsx        # The persistent sticky timer header.
-│       └── ReportsView.tsx     # Analytics dashboard with Recharts.
-│
-├── server/                     # The Backend Logic Layer
-│   ├── actions/                # MUTATIONS (Write Operations).
-│   │   ├── clients.ts          # Logic to create/update Clients.
-│   │   ├── projects.ts         # Logic to create/edit/delete Projects.
-│   │   └── time-entries.ts     # Logic to start/stop timers.
-│   │
-│   └── data/                   # QUERIES (Read Operations).
-│       ├── reports.ts          # Complex aggregation logic (Group by Day, etc.)
-│       ├── projects.ts         # Fetchers with specific 'include' relations.
-│       └── ...
-│
-├── lib/                        # Singletons & Configuration
-│   ├── prisma.ts               # Global Prisma Client (prevents connection exhaustion).
-│   └── utils.ts                # Helper for merging Tailwind classes (clsx/twMerge).
-│
-└── types.ts                    # Shared Interfaces used by both DB mappers and UI.
+│   ├── ui/                # Shadcn/UI primitives
+│   └── custom/            # Domain components (MainDashboard, TimerBar, etc.)
+├── server/
+│   ├── actions/           # Mutations (create, update, delete)
+│   └── data/              # Queries (read operations)
+├── lib/                   # Utilities (Prisma singleton, helpers)
+└── types.ts               # Shared UI type definitions
 ```
 
 ---
 
-# 3. Database Architecture
+# 3. Technology Stack
 
-## 3.1 Entity Relationship Diagram (ERD)
-The database schema is normalized to ensure data integrity and query efficiency.
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| **Framework** | Next.js | 16.1.4 | App Router, Server Components, Server Actions |
+| **UI** | React | 19.2.3 | `useOptimistic`, `useTransition` |
+| **Language** | TypeScript | 5.x | End-to-end type safety |
+| **Database** | PostgreSQL | 16 | Relational storage (Neon serverless) |
+| **ORM** | Prisma | 6.19.2 | Type-safe queries, migrations |
+| **Validation** | Zod | 4.3.5 | Runtime schema validation |
+| **Styling** | Tailwind CSS | 4.0 | Utility-first CSS |
+| **Components** | Shadcn/UI | Latest | Accessible primitives (Radix-based) |
+| **Charts** | Recharts | 2.15.4 | Data visualization |
+
+### Key React 19 Patterns
+
+```typescript
+// Optimistic UI - instant feedback before server confirms
+const [optimisticState, setOptimisticState] = useOptimistic(initialState, reducer);
+
+// Non-blocking mutations
+const [isPending, startTransition] = useTransition();
+startTransition(async () => {
+  await serverAction();
+});
+```
+
+---
+
+# 4. Database Architecture
+
+## Entity Relationship Diagram
 
 ```mermaid
 erDiagram
-    WORKSPACE {
+    Workspace ||--o{ Client : contains
+    Workspace ||--o{ Project : contains
+    Workspace ||--o{ Tag : contains
+
+    Client ||--o{ Project : "has (SetNull)"
+
+    Project ||--o{ TimeEntry : "logs (Cascade)"
+
+    Tag }o--o{ TimeEntry : tagged
+
+    Workspace {
         uuid id PK
         string name
         string ownerId
         datetime createdAt
     }
-    CLIENT {
+
+    Client {
         uuid id PK
         string name
         string currency
         uuid workspaceId FK
     }
-    PROJECT {
+
+    Project {
         uuid id PK
         string name
-        float budgetLimit "The Retainer Cap (e.g. 10.0)"
-        boolean isArchived
+        float budgetLimit
         boolean isFavorite
+        boolean isArchived
+        enum budgetType
         uuid clientId FK
         uuid workspaceId FK
     }
-    TIME_ENTRY {
+
+    TimeEntry {
         uuid id PK
         datetime startTime
-        datetime endTime "NULL if currently running"
-        int duration "Cached duration in Seconds"
-        string description
+        datetime endTime "NULL if running"
+        int duration "Cached seconds"
         boolean isBillable
         uuid projectId FK
     }
 
-    WORKSPACE ||--o{ CLIENT : owns
-    CLIENT ||--o{ PROJECT : has
-    PROJECT ||--o{ TIME_ENTRY : "logs time against"
+    Tag {
+        uuid id PK
+        string name
+        string color
+        uuid workspaceId FK
+    }
 ```
 
-## 3.2 Schema Design & Key Decisions
+## Key Schema Decisions
 
-### The "Integer Duration" Decision
-We store `duration` as an `Int` (seconds) rather than relying solely on `end - start` calculation at runtime.
-*   **Why?**
-    1.  **Aggregation Speed:** `SUM(duration)` is an extremely fast integer operation for the database.
-    2.  **Immutability:** If we ever need to "adjust" a duration (e.g., subtract 30 mins for a lunch break) without changing the timestamp, we can edit this field directly.
+### 1. Cached Duration Field
+```prisma
+model TimeEntry {
+  duration Int?  // Stored as seconds, NULL if running
+}
+```
+- `SUM(duration)` is O(1) for database
+- Allows manual adjustment without changing timestamps
+- Calculated when timer stops: `duration = (endTime - startTime) / 1000`
 
-### The "Active Timer" Definition
-An active timer is defined purely by the data state: **A TimeEntry where `endTime` is NULL.**
-*   **Constraint:** The application logic enforces that only **one** record can have `endTime: NULL` per user at any given moment. This "Atomic Timer" logic is handled in the Backend Layer.
+### 2. NULL endTime = Active Timer
+```prisma
+endTime DateTime?  // NULL means currently running
+```
+- Simple check: `WHERE endTime IS NULL` finds active timer
+- No separate status field needed
 
-### Cascading Deletes
-We use Prisma's relational capabilities to ensure clean data. If a **Project** is deleted, all associated **TimeEntry** records are automatically deleted (`onDelete: Cascade` behavior simulated or enforced). This prevents "orphaned" time entries that clutter the database and skew reports.
+### 3. Cascade Behavior
+- **Delete Project** → All TimeEntries deleted (Cascade)
+- **Delete Client** → Project.clientId set to NULL (SetNull)
+
+### 4. Performance Indexes
+```prisma
+@@index([projectId])   // Fast project filtering
+@@index([startTime])   // Fast date range queries
+```
 
 ---
 
-# 4. Backend Logic & Data Access
+# 5. Backend Architecture
 
-## 4.1 The "Two-Layer" Backend Pattern
-We separate our backend logic into **Queries** (Reading) and **Actions** (Writing).
+## Two-Layer Pattern
 
-### Layer 1: Data Access (`src/server/data/*`)
-These are pure async functions that fetch data. They act as "Prepared Statements".
-*   **Example:** `getProjects(filters)`
-    *   Accepts an object: `{ search: 'website', status: 'active' }`.
-    *   Constructs a dynamic Prisma `where` clause.
-    *   Returns strictly typed `Project[]` arrays including relation data (`include: { client: true }`).
+```mermaid
+flowchart TB
+    subgraph SC["Server Component (page.tsx)"]
+        Fetch[Fetch Data]
+    end
 
-### Layer 2: Server Actions (`src/server/actions/*`)
-These are the public API of our application. They are callable directly from frontend forms.
-*   **Responsibilities:**
-    1.  **Input Parsing:** Extract data from `FormData`.
-    2.  **Validation:** Ensure required fields exist.
-    3.  **DB Mutation:** Execute `prisma.create` or `prisma.update`.
-    4.  **Cache Revalidation:** Call `revalidatePath('/')` to tell Next.js to purge its cache and refresh the UI with new data immediately.
+    subgraph Layers["Backend Layers"]
+        Data["Data Layer (Queries)"]
+        Actions["Actions Layer (Mutations)"]
+    end
 
-## 4.2 The "Atomic Timer" Algorithm
-Located in `src/server/actions/time-entries.ts`, the `startTimer` function ensures data consistency:
+    subgraph Prisma["Prisma Client"]
+        DB[(PostgreSQL)]
+    end
+
+    SC --> Data
+    CC[Client Components] --> Actions
+    Data --> Prisma
+    Actions --> Prisma
+    Prisma --> DB
+```
+
+| Layer | Location | Purpose | Called From |
+|-------|----------|---------|-------------|
+| **Data** | `src/server/data/` | Read operations | Server Components |
+| **Actions** | `src/server/actions/` | Write operations | Client Components |
+
+## The Atomic Timer Algorithm
+
+```mermaid
+flowchart TD
+    A[User clicks Start] --> B{Find active timer}
+    B -->|Found| C[Calculate duration]
+    C --> D[Stop old timer]
+    D --> E[Create new timer]
+    B -->|None| E
+    E --> F[revalidatePath]
+    F --> G[UI refreshes]
+```
+
+**Implementation (`src/server/actions/time-entries.ts`):**
 
 ```typescript
-export async function startTimer(projectId: string, description: string) {
-  // Step 1: "Close the door behind you"
-  // Find any currently running timer and stop it.
-  await prisma.timeEntry.updateMany({
-    where: { endTime: null },
-    data: { endTime: new Date() } 
+export async function startTimer(projectId: string | null, description: string) {
+  // 1. Stop any running timers
+  const activeEntries = await prisma.timeEntry.findMany({
+    where: { endTime: null }
   });
 
-  // Step 2: "Open the new door"
-  // Create the new entry with start time = NOW.
+  await Promise.all(activeEntries.map(entry => {
+    const duration = Math.floor((Date.now() - entry.startTime.getTime()) / 1000);
+    return prisma.timeEntry.update({
+      where: { id: entry.id },
+      data: { endTime: new Date(), duration }
+    });
+  }));
+
+  // 2. Create new timer
   await prisma.timeEntry.create({
-    data: {
-      projectId,
-      description,
-      startTime: new Date()
-    }
+    data: { projectId, description, startTime: new Date() }
   });
-  
-  // Step 3: Refresh UI
+
+  // 3. Refresh UI
   revalidatePath("/");
 }
 ```
 
-## 4.3 Reporting & Aggregation Strategy
-Reports are calculated **Server-Side** to keep the client lightweight.
-*   **File:** `src/server/data/reports.ts`
-*   **Daily Activity:**
-    1.  Fetches all entries within a date range (e.g., 30 days).
-    2.  Iterates through the range to ensure every day is represented (even if 0 hours).
-    3.  Sums the `duration` for entries on that day.
-    4.  Returns a clean JSON array for Recharts: `[{ date: '2024-01-01', hours: 6.5 }, ...]`.
-
----
-
-# 5. Frontend Architecture
-
-## 5.1 React Server Components (The Data Orchestrator)
-The file `src/app/page.tsx` is a **Server Component**. It never runs in the browser.
-*   **Role:** It acts as the "Controller".
-*   **Behavior:**
-    1.  It reads the URL Search Params (`?search=foo`).
-    2.  It calls multiple backend functions in parallel using `Promise.all`:
-        *   `getProjects()`
-        *   `getClients()`
-        *   `getTimeEntries()`
-        *   `getSummaryMetrics()`
-    3.  It passes this fully resolved data to the `MainDashboard` client component as props.
-
-## 5.2 Client Components & Interactivity
-The file `src/components/custom/MainDashboard.tsx` is a **Client Component** (`"use client"`).
-*   **Role:** The "View". It manages user interaction.
-*   **State:** It holds the `currentView` state (Dashboard vs. Projects vs. Reports) to switch tabs instantly without a server roundtrip.
-*   **Timer Logic:** It runs a local `setInterval` that increments a counter every second. This creates the visual effect of a ticking timer, even though the actual "Start Time" is a static timestamp from the server.
-
-## 5.3 React 19 Patterns (Transitions)
-We avoid standard `isLoading` states for mutations. Instead, we use `useTransition`:
+## Optimized Aggregations
 
 ```typescript
-const [isPending, startTransition] = useTransition();
+// BAD: N+1 queries
+for (const project of projects) {
+  const entries = await prisma.timeEntry.findMany({ where: { projectId: project.id } });
+  project.hours = entries.reduce((sum, e) => sum + e.duration, 0);
+}
 
-const handleDelete = () => {
-  startTransition(async () => {
-    await deleteProject(id); // Server Action
-  });
+// GOOD: Single aggregation query
+const hoursAggregation = await prisma.timeEntry.groupBy({
+  by: ['projectId'],
+  where: { projectId: { in: projectIds }, endTime: { not: null } },
+  _sum: { duration: true },
+});
+```
+
+---
+
+# 6. Frontend Architecture
+
+## Component Hierarchy
+
+```mermaid
+flowchart TB
+    subgraph Server["Server Component"]
+        Page["page.tsx (Data Orchestrator)"]
+    end
+
+    subgraph Client["Client Components"]
+        MD[MainDashboard]
+        MD --> SB[Sidebar]
+        MD --> TB[TimerBar]
+        MD --> Views
+
+        subgraph Views["View Switch"]
+            DV[Dashboard View]
+            TV[TimesheetView]
+            TL[TrackerList]
+            PL[ProjectsList]
+            CL[ClientsList]
+            RV[ReportsView]
+        end
+
+        DV --> BC[BudgetCard]
+        DV --> TER[TimeEntryRow]
+        TL --> TER
+        PL --> PR[ProjectRow]
+    end
+
+    Page --> MD
+```
+
+## Server Component: Data Orchestrator
+
+```typescript
+// src/app/page.tsx
+export default async function Home({ searchParams }) {
+  // Parallel data fetching (critical for performance)
+  const [projects, clients, entries, metrics] = await Promise.all([
+    getProjects(filters),
+    getClients(),
+    getTimeEntries(),
+    getSummaryMetrics(startDate, endDate)
+  ]);
+
+  // Map Prisma types to UI types
+  return (
+    <MainDashboard
+      initialProjects={projects.map(mapProject)}
+      initialClients={clients.map(mapClient)}
+      initialEntries={entries.map(mapEntry)}
+      reportData={{ ... }}
+    />
+  );
+}
+```
+
+## Budget Status Visualization
+
+```mermaid
+flowchart LR
+    subgraph Status["Budget Status Colors"]
+        Safe["🟢 Safe\n< 80%"]
+        Warning["🟡 Warning\n80-100%"]
+        Danger["🔴 Danger\n> 100%"]
+    end
+
+    Safe --> Warning --> Danger
+```
+
+**BudgetCard Color Logic:**
+
+```typescript
+const percentage = (hoursUsed / hoursTotal) * 100;
+
+let barColor = 'bg-emerald-500';     // Green: < 80%
+if (percentage >= 80) barColor = 'bg-amber-500';   // Amber: 80-100%
+if (percentage > 100) barColor = 'bg-rose-600';    // Red: > 100%
+```
+
+---
+
+# 7. Data Flow & State Management
+
+## Complete Request Cycle
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client Component
+    participant S as Server Action
+    participant D as Database
+    participant SC as Server Component
+
+    U->>C: Click "Start Timer"
+    C->>C: setOptimisticState (instant UI)
+    C->>S: startTimer()
+    S->>D: Stop active timers
+    S->>D: Create new entry
+    S->>SC: revalidatePath("/")
+    SC->>D: Fetch fresh data
+    SC->>C: New props
+    C->>U: Reconciled UI
+```
+
+## State Management Strategies
+
+| State Type | Strategy | Example |
+|------------|----------|---------|
+| **Server Data** | Props from Server Component | Projects, Entries |
+| **URL State** | `useSearchParams` | Filters, Sorting, Pagination |
+| **Optimistic** | `useOptimistic` | Timer running state |
+| **Local UI** | `useState` | Modal open, current view |
+
+### URL-Based Filtering
+
+```typescript
+// Read from URL
+const sortBy = searchParams.get('sortBy') || 'updatedAt';
+
+// Update URL (triggers Server Component re-render)
+const handleSort = (column) => {
+  const params = new URLSearchParams(searchParams);
+  params.set('sortBy', column);
+  router.replace(`${pathname}?${params.toString()}`);
 };
 ```
-*   **Benefit:** The UI remains responsive. We can use the `isPending` boolean to show a subtle spinner or dim the row being deleted, providing immediate feedback while the server processes the request.
+
+**Benefits:** Shareable links, browser history works, no client state sync issues.
 
 ---
 
-# 6. Feature Implementation Deep Dives
+# 8. Component & Action Reference
 
-## 6.1 Real-time Budget Calculation
-How do we know a project is "80% Used"?
-1.  **Fetch:** When fetching Projects, we include `timeEntries`.
-2.  **Map:** In `page.tsx`, we map over the raw DB result.
-3.  **Reduce:** We sum the `duration` of all entries for that project.
-    `totalSeconds = entries.reduce((sum, e) => sum + e.duration, 0)`
-4.  **Calculate:** `hoursUsed = totalSeconds / 3600`.
-5.  **Display:** The `BudgetCard` component compares `hoursUsed` vs `project.budgetLimit`.
-    *   `< 80%`: Green (`bg-emerald-500`)
-    *   `> 80%`: Amber (`bg-amber-500`)
-    *   `> 100%`: Red (`bg-rose-500`)
+## Key Components
 
-## 6.2 Advanced URL-Based Filtering
-The **Projects List** does not use local state for filtering. It uses the URL.
-*   **Scenario:** User types "Website" in the search box.
-*   **Action:**
-    1.  Input `onChange` fires.
-    2.  Debounce timer waits 300ms.
-    3.  `router.replace('?search=Website')` is called.
-*   **Reaction:**
-    1.  Next.js sees the URL change.
-    2.  It re-runs the Server Component (`page.tsx`) with new params.
-    3.  `getProjects({ search: 'Website' })` executes a Prisma `contains` query.
-    4.  The page updates with filtered data.
-*   **Benefit:** You can share the URL with a colleague, and they see the exact same filtered view.
+| Component | File | Purpose |
+|-----------|------|---------|
+| **MainDashboard** | `custom/MainDashboard.tsx` | Root client shell, view switching, timer state |
+| **TimerBar** | `custom/TimerBar.tsx` | Sticky header with timer controls |
+| **BudgetCard** | `custom/BudgetCard.tsx` | Visual budget consumption display |
+| **ProjectsList** | `custom/ProjectsList.tsx` | Project CRUD with filtering/sorting |
+| **TrackerList** | `custom/TrackerList.tsx` | Time entries grouped by date |
+| **ReportsView** | `custom/ReportsView.tsx` | Analytics with Recharts |
+| **TimesheetView** | `custom/TimesheetView.tsx` | Weekly grid view |
 
-## 6.3 Manual Time Entry
-Sometimes users forget to track time. The **Manual Entry** modal solves this.
-*   **Inputs:** `Date`, `Start Time` (e.g. "09:00"), `End Time` (e.g. "11:00").
-*   **Processing:**
-    1.  Frontend combines Date + Time into ISO Strings.
-    2.  Server Action receives ISO Strings.
-    3.  Server calculates `duration = End - Start` (in seconds).
-    4.  Server saves record.
-*   **Validation:** Prevents negative duration (End before Start).
+## Server Actions
+
+### Time Entries (`src/server/actions/time-entries.ts`)
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `startTimer` | `projectId, description` | Stops active timer, starts new one |
+| `stopTimer` | `id` | Sets endTime, calculates duration |
+| `logManualTimeEntry` | `{projectId, description, startTime, endTime, isBillable}` | Creates completed entry |
+| `updateTimeEntry` | `id, data` | Updates entry, recalculates duration |
+| `deleteTimeEntry` | `id` | Removes entry |
+
+### Projects (`src/server/actions/projects.ts`)
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `createProject` | `FormData` | Creates with name, clientId, budgetLimit |
+| `updateProject` | `id, FormData` | Updates project details |
+| `deleteProject` | `id` | Deletes project (cascades to entries) |
+| `toggleFavorite` | `id` | Stars/unstars project |
+| `archiveProject` | `id` | Archives project |
+
+### Clients (`src/server/actions/clients.ts`)
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `createClient` | `FormData` | Creates with name, currency |
+
+## Validation Pattern
+
+All actions validate with Zod before database operations:
+
+```typescript
+const schema = z.object({
+  name: z.string().min(1).max(100),
+  budgetLimit: z.number().min(0).default(0),
+});
+
+export async function createProject(formData: FormData) {
+  const parsed = schema.safeParse(rawData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message };
+  }
+  // Use parsed.data only
+}
+```
 
 ---
 
-# 7. Developer Operations
+# 9. Developer Operations
 
-## 7.1 Environment Setup
-To run this project locally, you need:
-1.  **Node.js:** v22 or higher (LTS).
-2.  **Database:** A PostgreSQL connection string (Local Docker or Cloud).
+## Quick Start
 
-**Steps:**
 ```bash
-# 1. Clone
+# Clone & install
 git clone https://github.com/filio623/time_tracker_app.git
-cd time_tracker_app
+cd time_tracker_app && npm install
 
-# 2. Install Dependencies
-npm install
-
-# 3. Environment
+# Configure
 cp .env.example .env
-# Edit .env and add: DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+# Edit .env: DATABASE_URL="postgresql://..."
 
-# 4. Initialize Database
-npx prisma migrate dev --name init
+# Database setup
+npx prisma migrate dev
+npx prisma db seed  # Optional sample data
 
-# 5. Seed Initial Data (Optional)
-npx prisma db seed
-
-# 6. Run
+# Run
 npm run dev
 ```
 
-## 7.2 Database Management (Prisma)
-We use Prisma CLI for all DB ops.
-*   `npx prisma studio`: Opens a web GUI to view/edit raw data.
-*   `npx prisma migrate dev`: Run this after editing `schema.prisma`.
-*   `npx prisma generate`: Run this to update TypeScript definitions.
+## Database Commands
 
-## 7.3 Deployment Guide
-This application is "Serverless Ready".
-1.  **Hosting:** Deploy to **Vercel** (recommended for Next.js).
-2.  **Database:** Provision a **Neon** Postgres database.
-3.  **Config:** Set `DATABASE_URL` in Vercel Environment Variables.
-4.  **Build:** Vercel automatically detects Next.js and runs `next build`.
+```bash
+npx prisma studio          # Visual data editor
+npx prisma migrate dev     # Create migration
+npx prisma generate        # Regenerate client types
+npx prisma migrate deploy  # Production migrations
+```
+
+## Deployment (Vercel + Neon)
+
+1. Create Neon database at neon.tech
+2. Connect GitHub repo to Vercel
+3. Add `DATABASE_URL` environment variable
+4. Deploy (Vercel auto-detects Next.js)
+5. Run `npx prisma migrate deploy`
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Too many connections" | Verify Prisma singleton in `src/lib/prisma.ts` |
+| TypeScript errors after schema change | Run `npx prisma generate` |
+| Stale UI after mutation | Ensure `revalidatePath("/")` in server action |
+
+---
+
+# 10. Future Roadmap
+
+| Phase | Feature | Description |
+|-------|---------|-------------|
+| **5** | Authentication | Better-Auth/NextAuth, user roles |
+| **6** | Multi-Tenancy | Workspace switching, invitations |
+| **7** | Invoicing | PDF generation, "Mark as Billed" |
+| **8** | Tags | Tag UI, filtering, tag-based reports |
+| **9** | Desktop App | Tauri wrapper, global hotkeys, menu bar timer |
 
 ---
 
-# 8. Future Roadmap & Next Steps
+# Appendix: Quick Reference
 
-While Version 3.0.0 is robust, these features are planned for future phases to bring the application to full Enterprise maturity.
+## File Map
 
-1.  **Authentication (Phase 5):**
-    *   Integrate **Better-Auth** (or NextAuth).
-    *   Update Schema: Link `Workspace` to specific `User` IDs.
-    *   Enable multi-user workspaces with "Admin" and "Member" roles.
+| File | Purpose |
+|------|---------|
+| `prisma/schema.prisma` | Database schema |
+| `src/app/page.tsx` | Server Component orchestrator |
+| `src/components/custom/MainDashboard.tsx` | Client shell |
+| `src/server/actions/time-entries.ts` | Timer mutations |
+| `src/server/data/projects.ts` | Project queries with aggregation |
+| `src/lib/prisma.ts` | Database singleton |
+| `src/types.ts` | UI type definitions |
 
-2.  **Multi-Tenancy (Phase 6):**
-    *   Allow users to switch between different `Workspaces` (e.g., "Personal" vs. "Agency").
-    *   Enforce Row Level Security (RLS) or application-level checks to ensure users only see data from their active workspace.
+## Common Patterns
 
-3.  **Advanced Invoicing:**
-    *   Generate PDF invoices from Time Entries using `react-pdf`.
-    *   "Mark as Billed" feature: Select entries -> Click "Bill" -> Reset Budget Progress Bar.
+**Server Action with Validation:**
+```typescript
+"use server";
+export async function createThing(formData: FormData) {
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message };
+  await prisma.thing.create({ data: parsed.data });
+  revalidatePath("/");
+  return { success: true };
+}
+```
 
-4.  **Tagging System:**
-    *   Implement the UI for the existing `Tag` schema model.
-    *   Allow filtering Reports by Tag (e.g., "How much time did we spend on 'Meetings' this month?").
+**Optimistic Update:**
+```typescript
+const [state, setState] = useOptimistic(initial, reducer);
+startTransition(async () => {
+  setState(action);      // Instant UI
+  await serverAction();  // Server sync
+});
+```
 
-5.  **Native Desktop App:**
-    *   Wrap the web app in **Tauri** or **Electron** for a native experience with global hotkeys (e.g., `Cmd+Shift+T` to toggle timer).
+**URL State:**
+```typescript
+const params = new URLSearchParams(searchParams);
+params.set('key', value);
+router.replace(`${pathname}?${params.toString()}`);
+```
 
 ---
+
 *End of Technical Guide*

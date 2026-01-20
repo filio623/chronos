@@ -79,13 +79,19 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
   const handleManualLog = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const dateStr = formData.get('date') as string; // YYYY-MM-DD
     const startStr = formData.get('startTime') as string; // HH:MM
     const endStr = formData.get('endTime') as string; // HH:MM
-    
-    const start = new Date(`${dateStr}T${startStr}`);
-    const end = new Date(`${dateStr}T${endStr}`);
+
+    // Parse as local time and convert to proper Date objects
+    // This handles the user's local timezone correctly
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [startHour, startMin] = startStr.split(':').map(Number);
+    const [endHour, endMin] = endStr.split(':').map(Number);
+
+    const start = new Date(year, month - 1, day, startHour, startMin, 0);
+    const end = new Date(year, month - 1, day, endHour, endMin, 0);
     
     startTransition(async () => {
       const result = await logManualTimeEntry({

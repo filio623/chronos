@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useOptimistic, useTransition } from 'react';
 import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import BudgetCard from '@/components/custom/BudgetCard';
@@ -15,6 +15,7 @@ import { startTimer, stopTimer } from '@/server/actions/time-entries';
 
 interface MainDashboardProps {
   initialProjects: Project[];
+  projectsCount?: number;
   initialClients: Client[];
   initialEntries: TimeEntry[];
   activeTimer: TimeEntry | null;
@@ -27,29 +28,41 @@ interface MainDashboardProps {
 
 export default function MainDashboard({
   initialProjects,
+  projectsCount,
   initialClients,
   initialEntries,
   activeTimer,
   reportData
 }: MainDashboardProps) {
   const [currentView, setCurrentView] = useState('timesheet');
-  const [isRunning, setIsRunning] = useState(!!activeTimer);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // Optimistic timer state for instant UI feedback
+  const [optimisticTimerState, setOptimisticTimerState] = useOptimistic(
+    { isRunning: !!activeTimer, timerId: activeTimer?.id || null },
+    (state, action: { type: 'start' | 'stop' }) => {
+      if (action.type === 'start') {
+        return { isRunning: true, timerId: 'optimistic-temp' };
+      }
+      return { isRunning: false, timerId: null };
+    }
+  );
+
+  const isRunning = optimisticTimerState.isRunning;
 
   // Initialize from active timer
   useEffect(() => {
     if (activeTimer) {
       const proj = initialProjects.find(p => p.id === activeTimer.projectId) || null;
       setActiveProject(proj);
-      
+
       // Calculate elapsed time from start
       const start = new Date(activeTimer.startTime).getTime();
       const now = Date.now();
       setElapsedSeconds(Math.floor((now - start) / 1000));
-      setIsRunning(true);
     } else {
-      setIsRunning(false);
       setElapsedSeconds(0);
       setActiveProject(null);
     }
@@ -67,17 +80,34 @@ export default function MainDashboard({
   }, [isRunning]);
 
   const handleRestartTask = async (entry: TimeEntry) => {
-    await startTimer(entry.projectId, entry.description);
+    const proj = initialProjects.find(p => p.id === entry.projectId) || null;
+    setActiveProject(proj);
+    setElapsedSeconds(0);
+
+    startTransition(async () => {
+      setOptimisticTimerState({ type: 'start' });
+      await startTimer(entry.projectId, entry.description);
+    });
   };
 
   const handleStartTimer = async (projectId: string | null, description: string) => {
-    await startTimer(projectId, description);
+    const proj = projectId ? initialProjects.find(p => p.id === projectId) || null : null;
+    setActiveProject(proj);
+    setElapsedSeconds(0);
+
+    startTransition(async () => {
+      setOptimisticTimerState({ type: 'start' });
+      await startTimer(projectId, description);
+    });
   };
 
   const handleStopTimer = async () => {
-    if (activeTimer) {
-      await stopTimer(activeTimer.id);
-    }
+    startTransition(async () => {
+      setOptimisticTimerState({ type: 'stop' });
+      if (activeTimer) {
+        await stopTimer(activeTimer.id);
+      }
+    });
   };
 
   return (
@@ -159,7 +189,7 @@ export default function MainDashboard({
               </div>
             )}
 
-            {currentView === 'timesheet' && <TimesheetView />}
+            {currentView === 'timesheet' && <TimesheetView projects={initialProjects} entries={initialEntries} />}
 
             {currentView === 'tracker' && (
               <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -175,9 +205,10 @@ export default function MainDashboard({
             )}
 
             {currentView === 'projects' && (
-              <ProjectsList 
-                projects={initialProjects} 
+              <ProjectsList
+                projects={initialProjects}
                 clients={initialClients}
+                totalCount={projectsCount}
               />
             )}
 

@@ -104,6 +104,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }
 
 // Helper for dot color
 function getProjectStatusColor(used: number, total: number): string {
+  // Guard against division by zero - no budget means no warning color
+  if (total <= 0) return 'bg-slate-400';
   const percentage = (used / total) * 100;
   if (percentage > 100) return 'bg-rose-500';
   if (percentage > 80) return 'bg-amber-500';

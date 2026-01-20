@@ -1,43 +1,40 @@
 import MainDashboard from "@/components/custom/MainDashboard";
-import { getProjects } from "@/server/data/projects";
+import { getProjects, ProjectWithHours } from "@/server/data/projects";
 import { getClients } from "@/server/data/clients";
 import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
 import { getSummaryMetrics, getDailyActivity, getProjectDistribution } from "@/server/data/reports";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Project, Client, TimeEntry } from "@/types";
+import { Client as PrismaClient, TimeEntry as PrismaTimeEntry } from "@prisma/client";
 
 /**
  * Mappers to convert Prisma models to our UI Types
  */
-const mapProject = (p: any): Project => {
-  const totalSeconds = p.timeEntries?.reduce((acc: number, entry: any) => acc + (entry.duration || 0), 0) || 0;
-  const totalHours = totalSeconds / 3600;
+const mapProject = (p: ProjectWithHours): Project => ({
+  id: p.id,
+  name: p.name,
+  client: p.client?.name || "No Client",
+  clientId: p.clientId,
+  color: p.color,
+  hoursUsed: p.hoursUsed,
+  hoursTotal: p.budgetLimit,
+  isFavorite: p.isFavorite,
+  isArchived: p.isArchived,
+});
 
-  return {
-    id: p.id,
-    name: p.name,
-    client: p.client?.name || "No Client",
-    clientId: p.clientId,
-    color: p.color,
-    hoursUsed: parseFloat(totalHours.toFixed(2)),
-    hoursTotal: p.budgetLimit,
-    isFavorite: p.isFavorite,
-  };
-};
-
-const mapClient = (c: any): Client => ({
+const mapClient = (c: PrismaClient): Client => ({
   id: c.id,
   name: c.name,
-  address: c.address,
+  address: c.address ?? undefined,
   currency: c.currency,
 });
 
-const mapEntry = (e: any): TimeEntry => {
+const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
   const durationSeconds = e.duration || 0;
   const hours = Math.floor(durationSeconds / 3600);
   const minutes = Math.floor((durationSeconds % 3600) / 60);
   const seconds = durationSeconds % 60;
-  
+
   return {
     id: e.id,
     description: e.description || "",
@@ -65,6 +62,10 @@ export default async function Home(props: {
     search: typeof searchParams?.search === 'string' ? searchParams.search : undefined,
     clientId: typeof searchParams?.client === 'string' ? searchParams.client : undefined,
     status: typeof searchParams?.status === 'string' ? (searchParams.status as 'active' | 'archived') : 'active',
+    sortBy: typeof searchParams?.sortBy === 'string' ? (searchParams.sortBy as 'name' | 'client' | 'hoursUsed' | 'updatedAt') : 'updatedAt',
+    sortOrder: typeof searchParams?.sortOrder === 'string' ? (searchParams.sortOrder as 'asc' | 'desc') : 'desc',
+    page: typeof searchParams?.page === 'string' ? parseInt(searchParams.page, 10) : 1,
+    pageSize: 10,
   };
 
   // Fetch data in parallel
@@ -87,14 +88,16 @@ export default async function Home(props: {
   ]);
 
   // Map to UI types
-  const projects = projectsData.map(mapProject);
+  const projects = projectsData.projects.map(mapProject);
+  const projectsCount = projectsData.totalCount;
   const clients = clientsData.map(mapClient);
   const entries = entriesData.map(mapEntry);
   const activeTimer = activeTimerData ? mapEntry(activeTimerData) : null;
 
   return (
-    <MainDashboard 
+    <MainDashboard
       initialProjects={projects}
+      projectsCount={projectsCount}
       initialClients={clients}
       initialEntries={entries}
       activeTimer={activeTimer}

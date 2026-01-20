@@ -1,5 +1,7 @@
-# dependencies
-/node_modules
+# ===============================
+# Dependencies
+# ===============================
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -8,56 +10,156 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# ===============================
+# Next.js
+# ===============================
 /.next/
 /out/
+/build/
+.swc/
 
-# production
-/build
+# ===============================
+# Production
+# ===============================
+/dist/
+*.tgz
 
-# misc
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-Thumb.db
-desktop.ini
-*.pem
+# ===============================
+# Testing
+# ===============================
+/coverage/
+*.lcov
+.nyc_output/
+/playwright-report/
+/playwright/.cache/
+/test-results/
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files
+# ===============================
+# Environment Variables
+# ===============================
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env*.local
+!.env.example
 
-# vercel
-.vercel
+# ===============================
+# Debug & Logs
+# ===============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+logs/
 
-# typescript
+# ===============================
+# TypeScript
+# ===============================
 *.tsbuildinfo
 next-env.d.ts
 
+# ===============================
 # Prisma
-/prisma/migrations
-# Only ignore sqlite databases if we use them
+# ===============================
+# Keep migrations in git (remove this line if you want to track them)
+# /prisma/migrations/
+
+# SQLite (local dev)
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 
-# IDEs
+# ===============================
+# OS Files
+# ===============================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.nfs*
+
+# ===============================
+# IDEs & Editors
+# ===============================
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
 
-# Agent / Temp Files
+# ===============================
+# Vercel
+# ===============================
+.vercel/
+
+# ===============================
+# AI Tools
+# ===============================
+.gemini/
+.claude/
+
+# ===============================
+# Turbo
+# ===============================
+.turbo/
+
+# ===============================
+# Misc
+# ===============================
+*.pem
+*.key
+*.cert
+*.crt
+
+# Temp files
 temp_backup/
 temp_clone/
+tmp/
+.tmp/
+.temp/
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+*.cache
+
+# Storybook
+storybook-static/
+
+# Sentry
+.sentryclirc
+
+# Docker
+docker-compose.override.yml
+
+# Bundle analyzer
+.next/analyze/

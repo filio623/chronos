@@ -2,22 +2,69 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+// Validation Schemas
+const idSchema = z.string().uuid("Invalid ID format");
+
+const startTimerSchema = z.object({
+  projectId: z.string().uuid().nullable(),
+  description: z.string().max(500, "Description must be 500 characters or less"),
+});
+
+const logManualEntrySchema = z.object({
+  projectId: z.string().uuid().nullable(),
+  description: z.string().max(500, "Description must be 500 characters or less"),
+  startTime: z.date(),
+  endTime: z.date(),
+  isBillable: z.boolean().default(true),
+});
+
+const updateTimeEntrySchema = z.object({
+  description: z.string().max(500, "Description must be 500 characters or less").optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  startTime: z.date().optional(),
+  endTime: z.date().nullable().optional(),
+  isBillable: z.boolean().optional(),
+});
 
 export async function startTimer(projectId: string | null, description: string) {
+  const parsed = startTimerSchema.safeParse({ projectId, description });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
+  }
+
   try {
+    const endTime = new Date();
+
     // 1. Stop any currently running timers first (sanity check)
-    await prisma.timeEntry.updateMany({
+    // Fetch active entries first to calculate duration for each
+    const activeEntries = await prisma.timeEntry.findMany({
       where: { endTime: null },
-      data: { 
-        endTime: new Date(),
-      }
+      select: { id: true, startTime: true }
     });
+
+    // Update each active entry with calculated duration
+    if (activeEntries.length > 0) {
+      await Promise.all(
+        activeEntries.map(entry => {
+          const durationSeconds = Math.floor((endTime.getTime() - entry.startTime.getTime()) / 1000);
+          return prisma.timeEntry.update({
+            where: { id: entry.id },
+            data: {
+              endTime,
+              duration: durationSeconds
+            }
+          });
+        })
+      );
+    }
 
     // 2. Start new entry
     await prisma.timeEntry.create({
       data: {
-        projectId,
-        description,
+        projectId: parsed.data.projectId,
+        description: parsed.data.description,
         startTime: new Date(),
       }
     });
@@ -26,21 +73,26 @@ export async function startTimer(projectId: string | null, description: string) 
     return { success: true };
   } catch (error) {
     console.error("Failed to start timer:", error);
-    return { success: false };
+    return { success: false, error: "Failed to start timer" };
   }
 }
 
 export async function stopTimer(id: string) {
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid entry ID" };
+  }
+
   try {
-    const entry = await prisma.timeEntry.findUnique({ where: { id } });
-    if (!entry) return { success: false };
+    const entry = await prisma.timeEntry.findUnique({ where: { id: parsed.data } });
+    if (!entry) return { success: false, error: "Entry not found" };
 
     const endTime = new Date();
     const durationSeconds = Math.floor((endTime.getTime() - entry.startTime.getTime()) / 1000);
 
     await prisma.timeEntry.update({
-      where: { id },
-      data: { 
+      where: { id: parsed.data },
+      data: {
         endTime,
         duration: durationSeconds
       }
@@ -50,7 +102,7 @@ export async function stopTimer(id: string) {
     return { success: true };
   } catch (error) {
     console.error("Failed to stop timer:", error);
-    return { success: false };
+    return { success: false, error: "Failed to stop timer" };
   }
 }
 
@@ -61,21 +113,27 @@ export async function logManualTimeEntry(data: {
   endTime: Date;
   isBillable: boolean;
 }) {
-  try {
-    const durationSeconds = Math.floor((data.endTime.getTime() - data.startTime.getTime()) / 1000);
-    
-    if (durationSeconds < 0) {
-      return { success: false, error: "End time cannot be before start time" };
-    }
+  const parsed = logManualEntrySchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
+  }
 
+  const { projectId, description, startTime, endTime, isBillable } = parsed.data;
+  const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+
+  if (durationSeconds < 0) {
+    return { success: false, error: "End time cannot be before start time" };
+  }
+
+  try {
     await prisma.timeEntry.create({
       data: {
-        projectId: data.projectId,
-        description: data.description,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        projectId,
+        description,
+        startTime,
+        endTime,
         duration: durationSeconds,
-        isBillable: data.isBillable,
+        isBillable,
       }
     });
 
@@ -88,14 +146,79 @@ export async function logManualTimeEntry(data: {
 }
 
 export async function deleteTimeEntry(id: string) {
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid entry ID" };
+  }
+
   try {
     await prisma.timeEntry.delete({
-      where: { id }
+      where: { id: parsed.data }
     });
     revalidatePath("/");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete entry:", error);
-    return { success: false };
+    return { success: false, error: "Failed to delete entry" };
+  }
+}
+
+export async function updateTimeEntry(id: string, data: {
+  description?: string;
+  projectId?: string | null;
+  startTime?: Date;
+  endTime?: Date | null;
+  isBillable?: boolean;
+}) {
+  const idParsed = idSchema.safeParse(id);
+  if (!idParsed.success) {
+    return { success: false, error: "Invalid entry ID" };
+  }
+
+  const dataParsed = updateTimeEntrySchema.safeParse(data);
+  if (!dataParsed.success) {
+    return { success: false, error: dataParsed.error.issues[0]?.message || "Invalid input" };
+  }
+
+  try {
+    const existingEntry = await prisma.timeEntry.findUnique({
+      where: { id: idParsed.data }
+    });
+
+    if (!existingEntry) {
+      return { success: false, error: "Entry not found" };
+    }
+
+    const { description, projectId, startTime, endTime, isBillable } = dataParsed.data;
+
+    // Recalculate duration if times changed
+    const newStartTime = startTime ?? existingEntry.startTime;
+    const newEndTime = endTime !== undefined ? endTime : existingEntry.endTime;
+
+    let duration = existingEntry.duration;
+    if (newEndTime) {
+      duration = Math.floor((newEndTime.getTime() - newStartTime.getTime()) / 1000);
+      if (duration < 0) {
+        return { success: false, error: "End time cannot be before start time" };
+      }
+    }
+
+    await prisma.timeEntry.update({
+      where: { id: idParsed.data },
+      data: {
+        ...(description !== undefined && { description }),
+        ...(projectId !== undefined && { projectId }),
+        ...(startTime !== undefined && { startTime }),
+        ...(endTime !== undefined && { endTime }),
+        ...(isBillable !== undefined && { isBillable }),
+        ...(newEndTime && { duration }),
+      }
+    });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update entry:", error);
+    return { success: false, error: "Failed to update entry" };
   }
 }

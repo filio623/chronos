@@ -7,14 +7,24 @@ interface BudgetCardProps {
 }
 
 const BudgetCard: React.FC<BudgetCardProps> = ({ project }) => {
-  const percentage = (project.hoursUsed / project.hoursTotal) * 100;
-  
+  // Guard against division by zero
+  const hasBudget = project.hoursTotal > 0;
+  const percentage = hasBudget ? (project.hoursUsed / project.hoursTotal) * 100 : 0;
+
   // Color Logic
   let barColor = 'bg-emerald-500';
   let statusColor = 'text-emerald-600';
   let badge = null;
 
-  if (percentage > 100) {
+  if (!hasBudget) {
+    barColor = 'bg-slate-300';
+    statusColor = 'text-slate-500';
+    badge = (
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+            NO LIMIT
+        </span>
+    );
+  } else if (percentage > 100) {
     barColor = 'bg-rose-600';
     statusColor = 'text-rose-600';
     badge = (
@@ -45,10 +55,14 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project }) => {
       {/* Stats */}
       <div className="flex items-end justify-between mb-2">
         <span className={`text-2xl font-semibold tracking-tight ${statusColor}`}>
-          {percentage.toFixed(0)}%
+          {hasBudget ? `${percentage.toFixed(0)}%` : `${project.hoursUsed}h`}
         </span>
         <span className="text-xs font-medium text-slate-400">
-           <span className="text-slate-700">{project.hoursUsed}</span> / {project.hoursTotal} hrs
+           {hasBudget ? (
+             <><span className="text-slate-700">{project.hoursUsed}</span> / {project.hoursTotal} hrs</>
+           ) : (
+             'No limit'
+           )}
         </span>
       </div>
 
