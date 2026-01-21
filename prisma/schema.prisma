@@ -26,6 +26,11 @@ enum ProjectAccess {
   PRIVATE
 }
 
+enum InvoiceBlockStatus {
+  ACTIVE
+  COMPLETED
+}
+
 // Models
 
 model Workspace {
@@ -46,13 +51,16 @@ model Client {
   address     String?
   currency    String   @default("USD")
   defaultRate Float?
-  
+  color       String   @default("text-slate-600")
+  budgetLimit Float    @default(0)
+
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  
-  projects    Project[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  projects      Project[]
+  invoiceBlocks InvoiceBlock[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Project {
@@ -62,7 +70,7 @@ model Project {
   isFavorite  Boolean       @default(false)
   isArchived  Boolean       @default(false)
   access      ProjectAccess @default(PUBLIC)
-  
+
   // Budget Logic
   budgetType  BudgetType    @default(HOURS)
   budgetReset BudgetReset   @default(NEVER)
@@ -72,11 +80,12 @@ model Project {
   // Relations
   clientId    String?
   client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  
+
   workspaceId String
   workspace   Workspace     @relation(fields: [workspaceId], references: [id])
-  
+
   timeEntries TimeEntry[]
+  tags        Tag[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -109,9 +118,34 @@ model Tag {
   id          String      @id @default(uuid())
   name        String
   color       String?
-  
+  isSystem    Boolean     @default(false)
+
   workspaceId String
   workspace   Workspace   @relation(fields: [workspaceId], references: [id])
-  
+
   timeEntries TimeEntry[]
+  projects    Project[]
+
+  @@unique([workspaceId, name])
+}
+
+model InvoiceBlock {
+  id                  String             @id @default(uuid())
+  clientId            String
+  client              Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  hoursTarget         Float              @default(10)
+  hoursCarriedForward Float              @default(0)
+
+  startDate           DateTime           @default(now())
+  endDate             DateTime?
+
+  status              InvoiceBlockStatus @default(ACTIVE)
+  notes               String?
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([clientId])
+  @@index([status])
 }

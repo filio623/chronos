@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RetainerTracker - Time Tracking for Retainer Projects",
-  description: "Track time, manage budgets, and stay on top of your retainer-based client projects with real-time analytics and reporting.",
+  title: "Retainer Tracker",
+  description: "Enterprise Time & Budget Management",
 };
 
 export default function RootLayout({
@@ -26,6 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning={true}
       >
         {children}
       </body>

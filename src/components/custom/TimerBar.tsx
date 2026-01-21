@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
-import { Play, Square, ChevronDown } from 'lucide-react';
-import { Project } from '@/types';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import React, { useState, useTransition } from 'react';
+import { Play, Square, Plus, Loader2 } from 'lucide-react';
+import { Project, Client } from '@/types';
+import { createProject } from '@/server/actions/projects';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectSeparator,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface TimerBarProps {
   projects: Project[];
+  clients?: Client[];
   activeProject: Project | null;
   isRunning: boolean;
   onStart: (projectId: string | null, description: string) => Promise<void>;
@@ -18,16 +31,21 @@ interface TimerBarProps {
   elapsedSeconds: number;
 }
 
-const TimerBar: React.FC<TimerBarProps> = ({ 
+const TimerBar: React.FC<TimerBarProps> = ({
   projects,
-  activeProject, 
-  isRunning, 
+  clients = [],
+  activeProject,
+  isRunning,
   onStart,
   onStop,
-  elapsedSeconds 
+  elapsedSeconds
 }) => {
   const [taskInput, setTaskInput] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | 'none'>('none');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectClientId, setNewProjectClientId] = useState<string | 'none'>('none');
+  const [isPending, startTransition] = useTransition();
 
   // Format seconds to HH:MM:SS
   const formatTime = (totalSeconds: number) => {
@@ -41,6 +59,36 @@ const TimerBar: React.FC<TimerBarProps> = ({
     const pId = selectedProjectId === 'none' ? null : selectedProjectId;
     onStart(pId, taskInput);
     setTaskInput('');
+  };
+
+  const handleProjectSelectChange = (value: string) => {
+    if (value === 'create-new') {
+      setIsCreateDialogOpen(true);
+    } else {
+      setSelectedProjectId(value as string | 'none');
+    }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+
+    const formData = new FormData();
+    formData.append('name', newProjectName);
+    if (newProjectClientId && newProjectClientId !== 'none') {
+      formData.append('clientId', newProjectClientId);
+    }
+
+    startTransition(async () => {
+      const result = await createProject(formData);
+      if (result.success) {
+        setIsCreateDialogOpen(false);
+        setNewProjectName('');
+        setNewProjectClientId('none');
+      } else {
+        alert(result.error || 'Failed to create project');
+      }
+    });
   };
 
   if (isRunning) {
@@ -94,7 +142,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
             />
             
             <div className="w-48">
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <Select value={selectedProjectId} onValueChange={handleProjectSelectChange}>
                 <SelectTrigger className="h-[42px] bg-white border-slate-200 text-xs">
                   <SelectValue placeholder="Select Project" />
                 </SelectTrigger>
@@ -108,12 +156,19 @@ const TimerBar: React.FC<TimerBarProps> = ({
                       </div>
                     </SelectItem>
                   ))}
+                  <SelectSeparator />
+                  <SelectItem value="create-new">
+                    <div className="flex items-center gap-2 text-indigo-600">
+                      <Plus size={12} />
+                      Create new project...
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
         </div>
         
-        <button 
+        <button
             onClick={handleStart}
             className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-all active:translate-y-px"
         >
@@ -121,6 +176,66 @@ const TimerBar: React.FC<TimerBarProps> = ({
             Start
         </button>
       </div>
+
+      {/* Create Project Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Quick Create Project</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateProject} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-project-name">Project Name</Label>
+              <Input
+                id="quick-project-name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="e.g. Website Redesign"
+                disabled={isPending}
+                autoFocus
+              />
+            </div>
+
+            {clients.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="quick-project-client">Client (optional)</Label>
+                <Select value={newProjectClientId} onValueChange={setNewProjectClientId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Client</SelectItem>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending || !newProjectName.trim()}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                {isPending && <Loader2 size={16} className="animate-spin mr-2" />}
+                Create Project
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

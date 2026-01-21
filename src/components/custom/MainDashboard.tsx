@@ -10,7 +10,7 @@ import ClientsList from '@/components/custom/ClientsList';
 import ReportsView from '@/components/custom/ReportsView';
 import TimesheetView from '@/components/custom/TimesheetView';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
-import { Project, TimeEntry, Client } from '@/types';
+import { Project, TimeEntry, Client, InvoiceBlock } from '@/types';
 import { startTimer, stopTimer } from '@/server/actions/time-entries';
 
 interface MainDashboardProps {
@@ -19,6 +19,7 @@ interface MainDashboardProps {
   initialClients: Client[];
   initialEntries: TimeEntry[];
   activeTimer: TimeEntry | null;
+  invoiceBlockHistory?: Record<string, InvoiceBlock[]>;
   reportData: {
     summary: any;
     dailyActivity: any[];
@@ -32,9 +33,10 @@ export default function MainDashboard({
   initialClients,
   initialEntries,
   activeTimer,
+  invoiceBlockHistory = {},
   reportData
 }: MainDashboardProps) {
-  const [currentView, setCurrentView] = useState('timesheet');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -59,9 +61,19 @@ export default function MainDashboard({
       setActiveProject(proj);
 
       // Calculate elapsed time from start
-      const start = new Date(activeTimer.startTime).getTime();
+      // Prefer startTimeISO if available (added to types/mappers)
+      // Otherwise try parsing startTime, but it might be formatted "HH:MM A" which is invalid
+      const startStr = activeTimer.startTimeISO || activeTimer.startTime;
+      const start = new Date(startStr).getTime();
       const now = Date.now();
-      setElapsedSeconds(Math.floor((now - start) / 1000));
+      
+      // Safety check for NaN
+      if (!isNaN(start)) {
+        setElapsedSeconds(Math.floor((now - start) / 1000));
+      } else {
+        console.error("Invalid start time for active timer:", startStr);
+        setElapsedSeconds(0);
+      }
     } else {
       setElapsedSeconds(0);
       setActiveProject(null);
@@ -121,10 +133,11 @@ export default function MainDashboard({
 
       <main className="flex-1 ml-[250px] min-w-0 flex flex-col h-screen">
         
-        <TimerBar 
+        <TimerBar
             projects={initialProjects}
-            activeProject={activeProject} 
-            isRunning={isRunning} 
+            clients={initialClients}
+            activeProject={activeProject}
+            isRunning={isRunning}
             onStart={handleStartTimer}
             onStop={handleStopTimer}
             elapsedSeconds={elapsedSeconds}
@@ -212,9 +225,15 @@ export default function MainDashboard({
               />
             )}
 
-            {currentView === 'clients' && <ClientsList clients={initialClients} />}
+            {currentView === 'clients' && <ClientsList clients={initialClients} invoiceBlockHistory={invoiceBlockHistory} />}
 
-            {currentView === 'reports' && <ReportsView data={reportData} />}
+            {currentView === 'reports' && (
+              <ReportsView
+                data={reportData}
+                projects={initialProjects.map(p => ({ id: p.id, name: p.name }))}
+                clients={initialClients.map(c => ({ id: c.id, name: c.name }))}
+              />
+            )}
 
             <div className="h-10"></div>
         </div>

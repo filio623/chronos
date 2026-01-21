@@ -1,11 +1,12 @@
 import MainDashboard from "@/components/custom/MainDashboard";
 import { getProjects, ProjectWithHours } from "@/server/data/projects";
-import { getClients } from "@/server/data/clients";
+import { getClientsWithData, ClientWithData } from "@/server/data/clients";
 import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
 import { getSummaryMetrics, getDailyActivity, getProjectDistribution } from "@/server/data/reports";
+import { getInvoiceBlockHistory } from "@/server/data/invoice-blocks";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
-import { Project, Client, TimeEntry } from "@/types";
-import { Client as PrismaClient, TimeEntry as PrismaTimeEntry } from "@prisma/client";
+import { Project, Client, TimeEntry, InvoiceBlock, InvoiceBlockStatus } from "@/types";
+import { Client as PrismaClient, TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
 
 /**
  * Mappers to convert Prisma models to our UI Types
@@ -22,11 +23,28 @@ const mapProject = (p: ProjectWithHours): Project => ({
   isArchived: p.isArchived,
 });
 
-const mapClient = (c: PrismaClient): Client => ({
+const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }): InvoiceBlock => ({
+  id: b.id,
+  clientId: b.clientId,
+  hoursTarget: b.hoursTarget,
+  hoursCarriedForward: b.hoursCarriedForward,
+  startDate: b.startDate.toISOString(),
+  endDate: b.endDate ? b.endDate.toISOString() : null,
+  status: b.status as InvoiceBlockStatus,
+  notes: b.notes ?? undefined,
+  hoursTracked: b.hoursTracked,
+  progressPercent: b.progressPercent,
+});
+
+const mapClient = (c: ClientWithData): Client => ({
   id: c.id,
   name: c.name,
   address: c.address ?? undefined,
   currency: c.currency,
+  color: c.color,
+  budgetLimit: c.budgetLimit,
+  hoursTracked: c.hoursTracked,
+  activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock) : null,
 });
 
 const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
@@ -41,6 +59,7 @@ const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
     projectId: e.projectId || "",
     date: format(e.startTime, "yyyy-MM-dd"),
     startTime: format(e.startTime, "hh:mm a"),
+    startTimeISO: e.startTime.toISOString(),
     endTime: e.endTime ? format(e.endTime, "hh:mm a") : "Running...",
     duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
     durationSeconds: durationSeconds,
@@ -70,22 +89,33 @@ export default async function Home(props: {
 
   // Fetch data in parallel
   const [
-    projectsData, 
-    clientsData, 
-    entriesData, 
+    projectsData,
+    clientsData,
+    entriesData,
     activeTimerData,
     summaryMetrics,
     dailyActivity,
     projectDistribution
   ] = await Promise.all([
     getProjects(projectFilters),
-    getClients(),
+    getClientsWithData(),
     getTimeEntries(),
     getActiveTimer(),
     getSummaryMetrics(startDate, endDate),
     getDailyActivity(startDate, endDate),
     getProjectDistribution(startDate, endDate)
   ]);
+
+  // Fetch invoice block history for all clients
+  const invoiceBlockHistoryPromises = clientsData.map(async (client) => {
+    const history = await getInvoiceBlockHistory(client.id);
+    return { clientId: client.id, history: history.map(mapInvoiceBlock) };
+  });
+  const invoiceBlockHistoryData = await Promise.all(invoiceBlockHistoryPromises);
+  const invoiceBlockHistory: Record<string, InvoiceBlock[]> = {};
+  invoiceBlockHistoryData.forEach(({ clientId, history }) => {
+    invoiceBlockHistory[clientId] = history;
+  });
 
   // Map to UI types
   const projects = projectsData.projects.map(mapProject);
@@ -101,6 +131,7 @@ export default async function Home(props: {
       initialClients={clients}
       initialEntries={entries}
       activeTimer={activeTimer}
+      invoiceBlockHistory={invoiceBlockHistory}
       reportData={{
         summary: summaryMetrics,
         dailyActivity,

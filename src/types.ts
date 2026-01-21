@@ -4,6 +4,32 @@ export enum ProjectStatus {
   Danger = 'Danger'
 }
 
+export enum InvoiceBlockStatus {
+  Active = 'ACTIVE',
+  Completed = 'COMPLETED'
+}
+
+export interface InvoiceBlock {
+  id: string;
+  clientId: string;
+  hoursTarget: number;
+  hoursCarriedForward: number;
+  startDate: string;
+  endDate: string | null;
+  status: InvoiceBlockStatus;
+  notes?: string;
+  // Computed for UI
+  hoursTracked: number;
+  progressPercent: number;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string | null;
+  isSystem: boolean;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -16,6 +42,7 @@ export interface Project {
   amount?: string;
   isFavorite?: boolean;
   isArchived?: boolean;
+  tags?: Tag[];
 }
 
 export interface Client {
@@ -23,6 +50,10 @@ export interface Client {
   name: string;
   address?: string;
   currency: string;
+  color: string;
+  budgetLimit: number;
+  hoursTracked?: number;
+  activeInvoiceBlock?: InvoiceBlock | null;
 }
 
 export interface TimeEntry {
@@ -31,6 +62,7 @@ export interface TimeEntry {
   projectId: string;
   date: string; // YYYY-MM-DD
   startTime: string; // ISO string or simple time string for UI
+  startTimeISO?: string; // Full ISO timestamp for calculations
   endTime: string;
   duration: string;
   durationSeconds: number; // Helper for calculations

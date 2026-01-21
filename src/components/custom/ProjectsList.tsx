@@ -46,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import ColorPicker from './ColorPicker';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -388,6 +389,42 @@ interface ProjectRowProps {
 const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetValue, setBudgetValue] = useState(project.hoursTotal.toString());
+  const [editColor, setEditColor] = useState(project.color);
+
+  const handleBudgetSave = async () => {
+    const newBudget = parseFloat(budgetValue) || 0;
+    if (newBudget === project.hoursTotal) {
+      setIsEditingBudget(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('name', project.name);
+    formData.append('budgetLimit', newBudget.toString());
+    if (project.clientId) {
+      formData.append('clientId', project.clientId);
+    }
+
+    startTransition(async () => {
+      const result = await updateProject(project.id, formData);
+      if (result.success) {
+        setIsEditingBudget(false);
+      } else {
+        alert(result.error || 'Failed to update budget');
+      }
+    });
+  };
+
+  const handleBudgetKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBudgetSave();
+    } else if (e.key === 'Escape') {
+      setBudgetValue(project.hoursTotal.toString());
+      setIsEditingBudget(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete project "${project.name}"? This will also delete all associated time entries.`)) {
@@ -444,12 +481,40 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
       <td className="px-4 py-3 font-mono text-slate-600">{project.hoursUsed.toFixed(2)}h</td>
       <td className="px-4 py-3 text-slate-500">{project.amount || '-'}</td>
       <td className="px-4 py-3">
-        <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        {isEditingBudget ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={budgetValue}
+              onChange={(e) => setBudgetValue(e.target.value)}
+              onBlur={handleBudgetSave}
+              onKeyDown={handleBudgetKeyDown}
+              className="w-16 px-1.5 py-0.5 text-xs border border-indigo-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              autoFocus
+              disabled={isPending}
+            />
+            <span className="text-xs text-slate-400">h</span>
+          </div>
+        ) : (
           <div
-            className={`h-full rounded-full ${project.hoursUsed > project.hoursTotal && project.hoursTotal > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`}
-            style={{ width: `${project.hoursTotal > 0 ? Math.min(100, (project.hoursUsed / project.hoursTotal) * 100) : 0}%` }}
-          ></div>
-        </div>
+            className="group/progress flex items-center gap-2 cursor-pointer"
+            onClick={() => setIsEditingBudget(true)}
+            title="Click to edit budget"
+          >
+            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${project.hoursUsed > project.hoursTotal && project.hoursTotal > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                style={{ width: `${project.hoursTotal > 0 ? Math.min(100, (project.hoursUsed / project.hoursTotal) * 100) : 0}%` }}
+              ></div>
+            </div>
+            <span className="text-xs text-slate-500 group-hover/progress:text-indigo-600">
+              {project.hoursTotal > 0 ? `${project.hoursTotal}h` : 'Set'}
+            </span>
+            <Pencil size={10} className="text-slate-300 opacity-0 group-hover/progress:opacity-100" />
+          </div>
+        )}
       </td>
       <td className="px-4 py-3 text-slate-500">{project.access || 'Public'}</td>
       <td className="px-4 py-3 text-right">
@@ -492,7 +557,10 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+              setIsEditDialogOpen(open);
+              if (open) setEditColor(project.color);
+            }}>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Edit Project</DialogTitle>
@@ -500,7 +568,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
               <form onSubmit={handleEditProject} className="space-y-4 py-4 text-left">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Project Name</Label>
-                  <Input id="edit-name" name="name" defaultValue={project.name} required disabled={isPending} />
+                  <div className="flex items-center gap-2">
+                    <ColorPicker value={editColor} onChange={setEditColor} disabled={isPending} />
+                    <Input id="edit-name" name="name" defaultValue={project.name} required disabled={isPending} className="flex-1" />
+                  </div>
+                  <input type="hidden" name="color" value={editColor} />
                 </div>
 
                 <div className="space-y-2">

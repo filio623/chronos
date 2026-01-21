@@ -5,18 +5,43 @@ import { revalidatePath } from "next/cache";
 import { getDefaultWorkspaceId } from "@/lib/workspaces";
 import { BudgetType, ProjectAccess, BudgetReset } from "@prisma/client";
 import { z } from "zod";
+import { COLOR_PALETTE } from "@/lib/colors";
+
+// Color palette for auto-assigning project colors
+async function getNextProjectColor(): Promise<string> {
+  const projects = await prisma.project.findMany({
+    select: { color: true },
+    orderBy: { createdAt: 'desc' },
+    take: COLOR_PALETTE.length,
+  });
+
+  const usedColors = projects.map(p => p.color);
+
+  // Find first unused color
+  for (const color of COLOR_PALETTE) {
+    if (!usedColors.includes(color)) {
+      return color;
+    }
+  }
+
+  // If all used, cycle back
+  const projectCount = await prisma.project.count();
+  return COLOR_PALETTE[projectCount % COLOR_PALETTE.length];
+}
 
 // Validation Schemas
 const createProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(100, "Project name must be 100 characters or less"),
   clientId: z.string().uuid().optional().nullable(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").default(0),
+  color: z.string().optional(),
 });
 
 const updateProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(100, "Project name must be 100 characters or less"),
   clientId: z.string().uuid().optional().nullable(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").default(0),
+  color: z.string().optional(),
 });
 
 const idSchema = z.string().uuid("Invalid ID format");
@@ -26,6 +51,7 @@ export async function createProject(formData: FormData) {
     name: formData.get("name") as string,
     clientId: (formData.get("clientId") as string) || null,
     budgetLimit: parseFloat(formData.get("budgetLimit") as string) || 0,
+    color: (formData.get("color") as string) || undefined,
   };
 
   const parsed = createProjectSchema.safeParse(rawData);
@@ -33,15 +59,17 @@ export async function createProject(formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, clientId, budgetLimit } = parsed.data;
+  const { name, clientId, budgetLimit, color } = parsed.data;
   const workspaceId = await getDefaultWorkspaceId();
+  const projectColor = color || await getNextProjectColor();
 
   try {
-    await prisma.project.create({
+    const project = await prisma.project.create({
       data: {
         name,
         clientId: clientId || null,
         budgetLimit,
+        color: projectColor,
         budgetType: BudgetType.HOURS,
         budgetReset: BudgetReset.NEVER,
         access: ProjectAccess.PUBLIC,
@@ -51,7 +79,7 @@ export async function createProject(formData: FormData) {
 
     revalidatePath("/projects");
     revalidatePath("/");
-    return { success: true };
+    return { success: true, data: project };
   } catch (error) {
     console.error("Failed to create project:", error);
     return { success: false, error: "Failed to create project" };
@@ -88,6 +116,7 @@ export async function updateProject(id: string, formData: FormData) {
     name: formData.get("name") as string,
     clientId: rawClientId === 'none' ? null : rawClientId || null,
     budgetLimit: parseFloat(formData.get("budgetLimit") as string) || 0,
+    color: (formData.get("color") as string) || undefined,
   };
 
   const parsed = updateProjectSchema.safeParse(rawData);
@@ -95,7 +124,7 @@ export async function updateProject(id: string, formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, clientId, budgetLimit } = parsed.data;
+  const { name, clientId, budgetLimit, color } = parsed.data;
 
   try {
     await prisma.project.update({
@@ -104,6 +133,7 @@ export async function updateProject(id: string, formData: FormData) {
         name,
         clientId,
         budgetLimit,
+        ...(color && { color }),
       },
     });
 
