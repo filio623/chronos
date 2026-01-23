@@ -46,7 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import ColorPicker from './ColorPicker';
+import ColorPicker, { InlineColorPicker } from './ColorPicker';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -471,6 +471,21 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
     });
   };
 
+  const handleColorChange = async (newColor: string) => {
+    setEditColor(newColor);
+    const formData = new FormData();
+    formData.append('name', project.name);
+    formData.append('color', newColor);
+    if (project.clientId) {
+      formData.append('clientId', project.clientId);
+    }
+    formData.append('budgetLimit', project.hoursTotal.toString());
+
+    startTransition(async () => {
+      await updateProject(project.id, formData);
+    });
+  };
+
   return (
     <tr className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''}`}>
       <td className="px-4 py-3 text-center">
@@ -478,7 +493,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
       </td>
       <td className="px-4 py-3 font-medium text-slate-900">
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${project.color.replace('text-', 'bg-')}`}></span>
+          <InlineColorPicker value={project.color} onChange={handleColorChange} disabled={isPending} />
           {project.name}
         </div>
       </td>

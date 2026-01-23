@@ -38,7 +38,7 @@ import {
 import InvoiceBlockCard from './InvoiceBlockCard';
 import CreateInvoiceBlockDialog from './CreateInvoiceBlockDialog';
 import InvoiceBlockHistory from './InvoiceBlockHistory';
-import ColorPicker from './ColorPicker';
+import ColorPicker, { InlineColorPicker } from './ColorPicker';
 
 interface ClientsListProps {
   clients: Client[];
@@ -213,6 +213,24 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
     });
   };
 
+  const handleColorChange = async (newColor: string) => {
+    setEditColor(newColor);
+    const formData = new FormData();
+    formData.append('name', client.name);
+    formData.append('color', newColor);
+    formData.append('currency', client.currency);
+    if (client.address) {
+      formData.append('address', client.address);
+    }
+    if (client.budgetLimit) {
+      formData.append('budgetLimit', client.budgetLimit.toString());
+    }
+
+    startTransition(async () => {
+      await updateClient(client.id, formData);
+    });
+  };
+
   // Calculate budget progress
   const hoursTracked = client.hoursTracked || 0;
   const budgetLimit = client.budgetLimit || 0;
@@ -229,7 +247,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${client.color?.replace('text-', 'bg-') || 'bg-slate-400'}`}></span>
+            <InlineColorPicker value={client.color || 'text-slate-600'} onChange={handleColorChange} disabled={isPending} />
             <button
               onClick={onToggleExpand}
               className="font-medium text-slate-900 hover:text-indigo-600 flex items-center gap-1"

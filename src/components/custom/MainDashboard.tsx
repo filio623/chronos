@@ -11,6 +11,7 @@ import ReportsView from '@/components/custom/ReportsView';
 import TimesheetView from '@/components/custom/TimesheetView';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
 import { Project, TimeEntry, Client, InvoiceBlock } from '@/types';
+import { tailwindToHex } from '@/lib/colors';
 import { startTimer, stopTimer } from '@/server/actions/time-entries';
 
 interface MainDashboardProps {
@@ -220,7 +221,10 @@ export default function MainDashboard({
                               className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3"
                             >
                               <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${client.color?.replace('text-', 'bg-') || 'bg-slate-400'}`}></span>
+                                <span
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: tailwindToHex(client.color || 'text-slate-600') }}
+                                ></span>
                                 <span className="font-medium text-slate-900 text-sm">{client.name}</span>
                               </div>
 
