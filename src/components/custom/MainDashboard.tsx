@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useOptimistic, useTransition } from 'react';
+import React, { useState, useEffect, useOptimistic, useTransition, useRef } from 'react';
 import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import BudgetCard from '@/components/custom/BudgetCard';
@@ -39,6 +39,7 @@ export default function MainDashboard({
   const [currentView, setCurrentView] = useState('dashboard');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const lastTimerIdRef = useRef<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Optimistic timer state for instant UI feedback
@@ -54,27 +55,34 @@ export default function MainDashboard({
 
   const isRunning = optimisticTimerState.isRunning;
 
-  // Initialize from active timer
+  // Initialize from active timer - only recalculate when timer ID changes
   useEffect(() => {
     if (activeTimer) {
       const proj = initialProjects.find(p => p.id === activeTimer.projectId) || null;
       setActiveProject(proj);
 
-      // Calculate elapsed time from start
-      // Prefer startTimeISO if available (added to types/mappers)
-      // Otherwise try parsing startTime, but it might be formatted "HH:MM A" which is invalid
-      const startStr = activeTimer.startTimeISO || activeTimer.startTime;
-      const start = new Date(startStr).getTime();
-      const now = Date.now();
-      
-      // Safety check for NaN
-      if (!isNaN(start)) {
-        setElapsedSeconds(Math.floor((now - start) / 1000));
-      } else {
-        console.error("Invalid start time for active timer:", startStr);
-        setElapsedSeconds(0);
+      // Only recalculate elapsed time if this is a different timer than before
+      // This prevents the timer display from resetting when the page revalidates
+      if (lastTimerIdRef.current !== activeTimer.id) {
+        lastTimerIdRef.current = activeTimer.id;
+
+        // Calculate elapsed time from start
+        // Prefer startTimeISO if available (added to types/mappers)
+        // Otherwise try parsing startTime, but it might be formatted "HH:MM A" which is invalid
+        const startStr = activeTimer.startTimeISO || activeTimer.startTime;
+        const start = new Date(startStr).getTime();
+        const now = Date.now();
+
+        // Safety check for NaN
+        if (!isNaN(start)) {
+          setElapsedSeconds(Math.floor((now - start) / 1000));
+        } else {
+          console.error("Invalid start time for active timer:", startStr);
+          setElapsedSeconds(0);
+        }
       }
     } else {
+      lastTimerIdRef.current = null;
       setElapsedSeconds(0);
       setActiveProject(null);
     }

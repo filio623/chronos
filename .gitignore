@@ -163,3 +163,4 @@ docker-compose.override.yml
 
 # Bundle analyzer
 .next/analyze/
+.vercel
