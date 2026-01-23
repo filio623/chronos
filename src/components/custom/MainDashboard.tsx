@@ -109,6 +109,18 @@ export default function MainDashboard({
     return () => clearInterval(interval);
   }, [isRunning, activeTimer]);
 
+  // Browser tab title effect - show elapsed time when timer is running
+  useEffect(() => {
+    if (isRunning && elapsedSeconds > 0) {
+      const mins = Math.floor(elapsedSeconds / 60);
+      const secs = elapsedSeconds % 60;
+      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      document.title = `${timeStr} - Chronos`;
+    } else {
+      document.title = 'Chronos';
+    }
+  }, [isRunning, elapsedSeconds]);
+
   const handleRestartTask = async (entry: TimeEntry) => {
     const proj = initialProjects.find(p => p.id === entry.projectId) || null;
     setActiveProject(proj);
@@ -184,6 +196,70 @@ export default function MainDashboard({
                           )}
                       </div>
                   </section>
+
+                  {/* Active Retainers */}
+                  {initialClients.filter(c => c.activeInvoiceBlock).length > 0 && (
+                    <section>
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Active Retainers</h2>
+                        <button
+                          onClick={() => setCurrentView('clients')}
+                          className="text-xs font-medium text-indigo-600 hover:underline"
+                        >
+                          View All Clients
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {initialClients
+                          .filter(c => c.activeInvoiceBlock)
+                          .slice(0, 6)
+                          .map((client) => (
+                            <div
+                              key={client.id}
+                              className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${client.color?.replace('text-', 'bg-') || 'bg-slate-400'}`}></span>
+                                <span className="font-medium text-slate-900 text-sm">{client.name}</span>
+                              </div>
+
+                              {client.activeInvoiceBlock && (
+                                <div className="space-y-2">
+                                  <div className="flex items-end justify-between">
+                                    <div>
+                                      <span className="text-lg font-bold text-slate-900">
+                                        {client.activeInvoiceBlock.hoursTracked.toFixed(1)}h
+                                      </span>
+                                      <span className="text-slate-400 text-xs ml-1">
+                                        / {(client.activeInvoiceBlock.hoursTarget + client.activeInvoiceBlock.hoursCarriedForward).toFixed(1)}h
+                                      </span>
+                                    </div>
+                                    <span className={`text-xs font-medium ${client.activeInvoiceBlock.progressPercent >= 100 ? 'text-rose-600' : client.activeInvoiceBlock.progressPercent >= 80 ? 'text-amber-600' : 'text-slate-500'}`}>
+                                      {client.activeInvoiceBlock.progressPercent.toFixed(0)}%
+                                    </span>
+                                  </div>
+
+                                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        client.activeInvoiceBlock.progressPercent >= 100
+                                          ? 'bg-rose-500'
+                                          : client.activeInvoiceBlock.progressPercent >= 80
+                                            ? 'bg-amber-500'
+                                            : 'bg-emerald-500'
+                                      }`}
+                                      style={{ width: `${Math.min(100, client.activeInvoiceBlock.progressPercent)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </section>
+                  )}
 
                   {/* Recent Activity */}
                   <section>

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Retainer Tracker",
-  description: "Enterprise Time & Budget Management",
+  title: "Chronos",
+  description: "Time & Budget Management",
 };
 
 export default function RootLayout({

@@ -65,6 +65,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
   const [filterText, setFilterText] = useState(searchParams.get('search') || '');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [newProjectColor, setNewProjectColor] = useState('text-indigo-600');
 
   // Parse sort from URL
   const currentSort = (searchParams.get('sortBy') as SortColumn) || 'updatedAt';
@@ -155,7 +156,11 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
             <form onSubmit={handleCreateProject} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Project Name</Label>
-                <Input id="name" name="name" placeholder="e.g. Website Redesign" required disabled={isPending} />
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={newProjectColor} onChange={setNewProjectColor} disabled={isPending} />
+                  <Input id="name" name="name" placeholder="e.g. Website Redesign" required disabled={isPending} className="flex-1" />
+                </div>
+                <input type="hidden" name="color" value={newProjectColor} />
               </div>
 
               <div className="space-y-2">

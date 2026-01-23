@@ -38,6 +38,7 @@ import {
 import InvoiceBlockCard from './InvoiceBlockCard';
 import CreateInvoiceBlockDialog from './CreateInvoiceBlockDialog';
 import InvoiceBlockHistory from './InvoiceBlockHistory';
+import ColorPicker from './ColorPicker';
 
 interface ClientsListProps {
   clients: Client[];
@@ -47,6 +48,7 @@ interface ClientsListProps {
 const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invoiceBlockHistory = {} }) => {
   const [filterText, setFilterText] = useState('');
   const [newClientName, setNewClientName] = useState('');
+  const [newClientColor, setNewClientColor] = useState('text-indigo-600');
   const [isPending, startTransition] = useTransition();
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
@@ -60,11 +62,13 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
 
     const formData = new FormData();
     formData.append('name', newClientName);
+    formData.append('color', newClientColor);
 
     startTransition(async () => {
       const result = await createClient(formData);
       if (result.success) {
         setNewClientName('');
+        setNewClientColor('text-indigo-600');
       } else {
         alert(result.error || 'Failed to create client');
       }
@@ -111,23 +115,26 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
         </div>
 
         {/* Right: Add Client */}
-        <form onSubmit={handleAddClient} className="flex w-full xl:w-auto gap-0 shadow-sm rounded-md">
-            <input
-                type="text"
-                name="name"
-                placeholder="Add new Client"
-                disabled={isPending}
-                className="flex-1 xl:w-64 px-4 py-2 text-sm border border-r-0 border-slate-200 rounded-l-md outline-none focus:z-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 disabled:bg-slate-50"
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-            />
-            <button
-                type="submit"
-                disabled={isPending}
-                className="px-6 py-2 bg-sky-400 text-white text-sm font-semibold rounded-r-md hover:bg-sky-500 transition-colors uppercase tracking-wide disabled:bg-sky-300 flex items-center justify-center min-w-[80px]"
-            >
-                {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Add'}
-            </button>
+        <form onSubmit={handleAddClient} className="flex w-full xl:w-auto items-center gap-2">
+            <ColorPicker value={newClientColor} onChange={setNewClientColor} disabled={isPending} />
+            <div className="flex gap-0 shadow-sm rounded-md flex-1 xl:flex-none">
+              <input
+                  type="text"
+                  name="name"
+                  placeholder="Add new Client"
+                  disabled={isPending}
+                  className="flex-1 xl:w-64 px-4 py-2 text-sm border border-r-0 border-slate-200 rounded-l-md outline-none focus:z-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 disabled:bg-slate-50"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+              />
+              <button
+                  type="submit"
+                  disabled={isPending}
+                  className="px-6 py-2 bg-sky-400 text-white text-sm font-semibold rounded-r-md hover:bg-sky-500 transition-colors uppercase tracking-wide disabled:bg-sky-300 flex items-center justify-center min-w-[80px]"
+              >
+                  {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Add'}
+              </button>
+            </div>
         </form>
       </div>
 
@@ -182,6 +189,7 @@ interface ClientRowProps {
 const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpand, invoiceBlockHistory }) => {
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editColor, setEditColor] = useState(client.color || 'text-indigo-600');
 
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete "${client.name}"? This will also delete all associated projects and invoice blocks.`)) {
@@ -319,7 +327,10 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (open) setEditColor(client.color || 'text-indigo-600');
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Client</DialogTitle>
@@ -327,7 +338,11 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
           <form onSubmit={handleEditClient} className="space-y-4 py-4 text-left">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Client Name</Label>
-              <Input id="edit-name" name="name" defaultValue={client.name} required disabled={isPending} />
+              <div className="flex items-center gap-2">
+                <ColorPicker value={editColor} onChange={setEditColor} disabled={isPending} />
+                <Input id="edit-name" name="name" defaultValue={client.name} required disabled={isPending} className="flex-1" />
+              </div>
+              <input type="hidden" name="color" value={editColor} />
             </div>
 
             <div className="space-y-2">
