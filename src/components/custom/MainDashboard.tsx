@@ -27,6 +27,15 @@ interface MainDashboardProps {
   };
 }
 
+// Helper to calculate elapsed seconds from a timer's start time
+function calculateElapsedSeconds(timer: TimeEntry | null): number {
+  if (!timer) return 0;
+  const startStr = timer.startTimeISO || timer.startTime;
+  const start = new Date(startStr).getTime();
+  if (isNaN(start)) return 0;
+  return Math.max(0, Math.floor((Date.now() - start) / 1000));
+}
+
 export default function MainDashboard({
   initialProjects,
   projectsCount,
@@ -37,9 +46,10 @@ export default function MainDashboard({
   reportData
 }: MainDashboardProps) {
   const [currentView, setCurrentView] = useState('dashboard');
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // Initialize elapsed seconds from activeTimer immediately to avoid race condition
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer));
   const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const lastTimerIdRef = useRef<string | null>(null);
+  const lastTimerIdRef = useRef<string | null>(activeTimer?.id || null);
   const [isPending, startTransition] = useTransition();
 
   // Optimistic timer state for instant UI feedback
@@ -88,16 +98,16 @@ export default function MainDashboard({
     }
   }, [activeTimer, initialProjects]);
 
-  // Timer Effect
+  // Timer Effect - recalculate from actual start time on each tick to prevent drift
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isRunning) {
+    if (isRunning && activeTimer) {
       interval = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
+        setElapsedSeconds(calculateElapsedSeconds(activeTimer));
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, activeTimer]);
 
   const handleRestartTask = async (entry: TimeEntry) => {
     const proj = initialProjects.find(p => p.id === entry.projectId) || null;
