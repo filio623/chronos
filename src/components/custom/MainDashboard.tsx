@@ -340,7 +340,13 @@ export default function MainDashboard({
               </div>
             )}
 
-            {currentView === 'timesheet' && <TimesheetView projects={initialProjects} entries={initialEntries} />}
+            {currentView === 'timesheet' && (
+              <TimesheetView
+                projects={initialProjects}
+                clients={initialClients}
+                entries={initialEntries}
+              />
+            )}
 
             {currentView === 'tracker' && (
               <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">

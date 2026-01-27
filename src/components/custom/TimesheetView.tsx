@@ -1,23 +1,38 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useTransition, useEffect } from 'react';
 import {
   Calendar,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Plus,
-  Copy,
-  Save,
-  X,
   List,
   Grid3X3
 } from 'lucide-react';
-import { Project, TimeEntry } from '@/types';
+import { Project, TimeEntry, Client } from '@/types';
+import { logManualTimeEntry } from '@/server/actions/time-entries';
+import { createProject } from '@/server/actions/projects';
+import { createClient } from '@/server/actions/clients';
+import { useRouter } from 'next/navigation';
 import { format, startOfWeek, endOfWeek, addDays, subWeeks, addWeeks, isSameDay } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectSeparator,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 interface TimesheetViewProps {
   projects: Project[];
+  clients: Client[];
   entries: TimeEntry[];
 }
 
@@ -27,9 +42,95 @@ interface TimesheetRow {
   values: string[];
 }
 
-const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
+const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entries }) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [localRows, setLocalRows] = useState<TimesheetRow[]>([]);
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isCreateClientOpen, setIsCreateClientOpen] = useState(false);
+  const [manualMode, setManualMode] = useState<'range' | 'duration'>('range');
+  const [isPending, startTransition] = useTransition();
+
+  const todayString = format(new Date(), 'yyyy-MM-dd');
+  const [entryDate, setEntryDate] = useState(todayString);
+  const [entryProjectId, setEntryProjectId] = useState<string>('none');
+  const [entryClientId, setEntryClientId] = useState<string>('none');
+  const [entryDescription, setEntryDescription] = useState('');
+  const [entryStartTime, setEntryStartTime] = useState('09:00');
+  const [entryEndTime, setEntryEndTime] = useState('10:00');
+  const [entryHours, setEntryHours] = useState('1');
+  const [entryMinutes, setEntryMinutes] = useState('0');
+  const [entryIsBillable, setEntryIsBillable] = useState(true);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectClientId, setNewProjectClientId] = useState<string>('none');
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientCurrency, setNewClientCurrency] = useState('USD');
+
+  const selectedProject = entryProjectId !== 'none'
+    ? projects.find(p => p.id === entryProjectId) || null
+    : null;
+
+  const isClientLocked = !!selectedProject?.clientId;
+
+  useEffect(() => {
+    if (selectedProject?.clientId) {
+      setEntryClientId(selectedProject.clientId);
+    }
+  }, [selectedProject?.clientId]);
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+
+    const formData = new FormData();
+    formData.append('name', newProjectName);
+    if (newProjectClientId !== 'none') {
+      formData.append('clientId', newProjectClientId);
+    }
+
+    startTransition(async () => {
+      const result = await createProject(formData);
+      if (!result.success) {
+        alert(result.error || 'Failed to create project');
+        return;
+      }
+      if (result.data?.id) {
+        setEntryProjectId(result.data.id);
+        if (result.data.clientId) {
+          setEntryClientId(result.data.clientId);
+        }
+      }
+      setIsCreateProjectOpen(false);
+      setNewProjectName('');
+      setNewProjectClientId('none');
+      router.refresh();
+    });
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName.trim()) return;
+
+    const formData = new FormData();
+    formData.append('name', newClientName);
+    formData.append('currency', newClientCurrency || 'USD');
+
+    startTransition(async () => {
+      const result = await createClient(formData);
+      if (!result.success) {
+        alert(result.error || 'Failed to create client');
+        return;
+      }
+      if (result.data?.id) {
+        setEntryClientId(result.data.id);
+      }
+      setIsCreateClientOpen(false);
+      setNewClientName('');
+      setNewClientCurrency('USD');
+      router.refresh();
+    });
+  };
 
   // Generate days for current week
   const weekDays = useMemo(() => {
@@ -84,20 +185,13 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
       });
     });
 
-    // Add any local rows that aren't in aggregated data
-    localRows.forEach(row => {
-      if (!aggregatedRows.find(r => r.projectId === row.projectId)) {
-        aggregatedRows.push(row);
-      }
-    });
-
     // Add empty row if no rows
     if (aggregatedRows.length === 0) {
       aggregatedRows.push({ id: Date.now(), projectId: '', values: ['', '', '', '', '', '', ''] });
     }
 
     return aggregatedRows;
-  }, [projectHoursByDay, localRows]);
+  }, [projectHoursByDay]);
 
   // Format hours for display (e.g., 2.5 -> "2:30")
   function formatHours(hours: number): string {
@@ -149,36 +243,6 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  const handleInputChange = (rowId: number, colIndex: number, value: string) => {
-    setLocalRows(prev => {
-      const existing = prev.find(r => r.id === rowId);
-      if (existing) {
-        return prev.map(row => {
-          if (row.id !== rowId) return row;
-          const newValues = [...row.values];
-          newValues[colIndex] = value;
-          return { ...row, values: newValues };
-        });
-      }
-      // Create new local row
-      const baseRow = rows.find(r => r.id === rowId);
-      if (baseRow) {
-        const newValues = [...baseRow.values];
-        newValues[colIndex] = value;
-        return [...prev, { ...baseRow, values: newValues }];
-      }
-      return prev;
-    });
-  };
-
-  const addNewRow = () => {
-    setLocalRows(prev => [...prev, { id: Date.now(), projectId: '', values: ['', '', '', '', '', '', ''] }]);
-  };
-
-  const removeRow = (id: number) => {
-    setLocalRows(prev => prev.filter(r => r.id !== id));
-  };
-
   const getProjectName = (projectId: string): { name: string; client: string; color: string } | null => {
     const project = projects.find(p => p.id === projectId);
     if (!project) return null;
@@ -190,6 +254,81 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
 
   const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
 
+  const weekEntries = useMemo(() => {
+    const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+    return entries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= currentWeekStart && entryDate <= weekEnd;
+    });
+  }, [entries, currentWeekStart]);
+
+  const buildDateTime = (dateStr: string, timeStr: string) => {
+    return new Date(`${dateStr}T${timeStr}`);
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const projectId = entryProjectId === 'none' ? null : entryProjectId;
+    const clientId = entryClientId === 'none' ? null : entryClientId;
+
+    let startTime: Date;
+    let endTime: Date;
+
+    if (manualMode === 'range') {
+      if (!entryStartTime || !entryEndTime) {
+        alert("Please enter a start and end time.");
+        return;
+      }
+      startTime = buildDateTime(entryDate, entryStartTime);
+      endTime = buildDateTime(entryDate, entryEndTime);
+    } else {
+      const hours = Math.max(0, parseInt(entryHours || '0', 10));
+      const minutes = Math.max(0, parseInt(entryMinutes || '0', 10));
+      const totalMinutes = hours * 60 + minutes;
+      if (totalMinutes <= 0) {
+        alert("Please enter a duration greater than 0.");
+        return;
+      }
+      const start = entryStartTime ? buildDateTime(entryDate, entryStartTime) : buildDateTime(entryDate, '00:00');
+      startTime = start;
+      endTime = new Date(start.getTime() + totalMinutes * 60000);
+    }
+
+    if (endTime <= startTime) {
+      alert("End time must be after start time.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await logManualTimeEntry({
+        projectId,
+        clientId,
+        description: entryDescription,
+        startTime,
+        endTime,
+        isBillable: entryIsBillable,
+      });
+
+      if (!result.success) {
+        alert(result.error || "Failed to log entry");
+        return;
+      }
+
+      setIsManualOpen(false);
+      setEntryDescription('');
+      setEntryProjectId('none');
+      setEntryClientId('none');
+      setEntryStartTime('09:00');
+      setEntryEndTime('10:00');
+      setEntryHours('1');
+      setEntryMinutes('0');
+      setEntryIsBillable(true);
+      router.refresh();
+    });
+  };
+
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
 
@@ -200,7 +339,11 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
         <div className="flex flex-wrap items-center gap-3">
           {/* Teammates Dropdown */}
           <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded text-sm text-slate-600 hover:border-indigo-300 transition-colors shadow-sm">
+            <button
+              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded text-sm text-slate-400 cursor-not-allowed shadow-sm"
+              disabled
+              title="Teammates (coming soon)"
+            >
               Teammates
               <ChevronDown size={14} className="text-slate-400" />
             </button>
@@ -208,10 +351,18 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
 
           {/* View Toggle */}
           <div className="flex bg-white border border-slate-200 rounded overflow-hidden shadow-sm">
-            <button className="p-2 text-indigo-600 bg-slate-50 border-r border-slate-200">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 border-r border-slate-200 ${viewMode === 'list' ? 'text-indigo-600 bg-slate-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+              title="List view"
+            >
               <List size={18} />
             </button>
-            <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`${viewMode === 'grid' ? 'p-2 text-indigo-600 bg-slate-50' : 'p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+              title="Grid view"
+            >
               <Grid3X3 size={18} />
             </button>
           </div>
@@ -240,8 +391,54 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
         </div>
       </div>
 
-      {/* Main Grid Container */}
-      <div className="bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+      {/* Manual Entry Button */}
+      <div className="flex items-center justify-end">
+        <Button
+          onClick={() => setIsManualOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          <Plus size={16} className="mr-2" />
+          Add manual entry
+        </Button>
+      </div>
+
+      {viewMode === 'list' ? (
+        <div className="bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+          <div className="divide-y divide-slate-100">
+            {weekEntries.length === 0 && (
+              <div className="p-10 text-center text-slate-400 text-sm">
+                No entries this week.
+              </div>
+            )}
+            {weekEntries.map((entry) => {
+              const project = projects.find(p => p.id === entry.projectId);
+              const client = entry.clientId
+                ? clients.find(c => c.id === entry.clientId)
+                : project?.clientId ? clients.find(c => c.id === project.clientId) : null;
+              return (
+                <div key={entry.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium text-slate-800 truncate">
+                      {entry.description || 'Manual entry'}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {format(new Date(entry.date), 'EEE, MMM d')} · {project?.name || client?.name || 'No project'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-500">
+                    <span>{entry.startTime} – {entry.endTime}</span>
+                    <span className="font-mono text-slate-700">{entry.duration}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 text-xs font-medium text-slate-500">
+            Weekly summary
+          </div>
 
         {/* Header Row */}
         <div className="bg-slate-100 border-b border-slate-200 flex text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -260,8 +457,8 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
           {rows.map((row) => {
             const projectInfo = row.projectId ? getProjectName(row.projectId) : null;
             return (
-              <div key={row.id} className="flex items-center group hover:bg-slate-50 transition-colors">
-                {/* Project Selector Cell */}
+              <div key={row.id} className="flex items-center hover:bg-slate-50 transition-colors">
+                {/* Project Cell */}
                 <div className="flex-1 px-4 py-3 min-w-[200px]">
                   {projectInfo ? (
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -270,41 +467,24 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
                       <span className="text-slate-400 font-normal">- {projectInfo.client}</span>
                     </div>
                   ) : (
-                    <button className="flex items-center gap-2 text-indigo-500 hover:text-indigo-700 text-sm font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
-                      <div className="w-5 h-5 rounded-full border border-indigo-200 flex items-center justify-center text-indigo-400">
-                        <Plus size={12} />
-                      </div>
-                      Select Project
-                    </button>
+                    <span className="text-sm text-slate-400">No project</span>
                   )}
                 </div>
 
-                {/* Input Cells */}
+                {/* Value Cells (read-only) */}
                 {row.values.map((val, idx) => (
                   <div key={idx} className="w-24 px-2 py-3 border-l border-slate-100 flex justify-center">
-                    <input
-                      type="text"
-                      className="w-full text-center text-sm text-slate-700 bg-slate-50 border border-transparent hover:border-slate-300 focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-1 py-1 outline-none transition-all placeholder:text-slate-300"
-                      placeholder="0:00"
-                      value={val}
-                      onChange={(e) => handleInputChange(row.id, idx, e.target.value)}
-                    />
+                    <div className="w-full text-center text-sm text-slate-600 bg-slate-50 rounded px-1 py-1">
+                      {val || '0:00'}
+                    </div>
                   </div>
                 ))}
 
-                {/* Row Total & Delete */}
-                <div className="w-24 px-2 py-3 border-l border-slate-100 bg-slate-50/50 flex items-center justify-center relative">
+                {/* Row Total */}
+                <div className="w-24 px-2 py-3 border-l border-slate-100 bg-slate-50/50 flex items-center justify-center">
                   <span className="text-sm font-mono font-medium text-slate-600">
                     {calculateRowTotal(row.values)}
                   </span>
-                  {!row.projectId && (
-                    <button
-                      onClick={() => removeRow(row.id)}
-                      className="absolute right-1 opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-rose-500 transition-all"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -324,27 +504,287 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, entries }) => {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={addNewRow}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-600 text-sm font-medium rounded hover:bg-indigo-50 transition-colors shadow-sm"
-        >
-          <Plus size={16} />
-          Add new row
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded hover:bg-slate-50 transition-colors shadow-sm">
-          <Copy size={16} />
-          Copy last week
-          <ChevronDown size={14} className="text-slate-400" />
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded hover:bg-slate-50 transition-colors shadow-sm">
-          <Save size={16} />
-          Save as template
-        </button>
-      </div>
 
+      {/* Manual Entry Dialog */}
+      <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Add manual time entry</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleManualSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="entry-date">Date</Label>
+                <Input
+                  id="entry-date"
+                  type="date"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entry-billable">Billable</Label>
+                <div className="flex items-center gap-2 h-10">
+                  <Switch
+                    checked={entryIsBillable}
+                    onCheckedChange={setEntryIsBillable}
+                    id="entry-billable"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {entryIsBillable ? 'Billable' : 'Non-billable'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={entryDescription}
+                onChange={(e) => setEntryDescription(e.target.value)}
+                placeholder="What did you work on?"
+                maxLength={500}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Project (optional)</Label>
+                <Select
+                  value={entryProjectId}
+                  onValueChange={(value) => {
+                    if (value === 'create-new-project') {
+                      setIsCreateProjectOpen(true);
+                      return;
+                    }
+                    setEntryProjectId(value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No project</SelectItem>
+                    <SelectSeparator />
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                    <SelectSeparator />
+                    <SelectItem value="create-new-project">
+                      <div className="flex items-center gap-2 text-indigo-600">
+                        <Plus size={12} />
+                        Create new project...
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Client (optional)</Label>
+                <Select
+                  value={entryClientId}
+                  onValueChange={(value) => {
+                    if (value === 'create-new-client') {
+                      setIsCreateClientOpen(true);
+                      return;
+                    }
+                    setEntryClientId(value);
+                  }}
+                  disabled={isClientLocked}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={isClientLocked ? 'Linked to project' : 'Select client'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No client</SelectItem>
+                    <SelectSeparator />
+                    {clients.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                    <SelectSeparator />
+                    <SelectItem value="create-new-client">
+                      <div className="flex items-center gap-2 text-indigo-600">
+                        <Plus size={12} />
+                        Create new client...
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={manualMode === 'range' ? 'default' : 'outline'}
+                onClick={() => setManualMode('range')}
+              >
+                Time range
+              </Button>
+              <Button
+                type="button"
+                variant={manualMode === 'duration' ? 'default' : 'outline'}
+                onClick={() => setManualMode('duration')}
+              >
+                Duration
+              </Button>
+            </div>
+
+            {manualMode === 'range' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Start time</Label>
+                  <Input
+                    type="time"
+                    value={entryStartTime}
+                    onChange={(e) => setEntryStartTime(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End time</Label>
+                  <Input
+                    type="time"
+                    value={entryEndTime}
+                    onChange={(e) => setEntryEndTime(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Hours</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={entryHours}
+                    onChange={(e) => setEntryHours(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Minutes</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={entryMinutes}
+                    onChange={(e) => setEntryMinutes(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Start time (optional)</Label>
+                  <Input
+                    type="time"
+                    value={entryStartTime}
+                    onChange={(e) => setEntryStartTime(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsManualOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? 'Saving...' : 'Save entry'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Create project</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateProject} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-project-name">Project name</Label>
+              <Input
+                id="new-project-name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="e.g. Website Redesign"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Client (optional)</Label>
+              <Select value={newProjectClientId} onValueChange={setNewProjectClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No client</SelectItem>
+                  <SelectSeparator />
+                  {clients.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? 'Creating...' : 'Create project'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateClientOpen} onOpenChange={setIsCreateClientOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Create client</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateClient} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-client-name">Client name</Label>
+              <Input
+                id="new-client-name"
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder="e.g. Acme Inc."
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-client-currency">Currency</Label>
+              <Input
+                id="new-client-currency"
+                value={newClientCurrency}
+                onChange={(e) => setNewClientCurrency(e.target.value.toUpperCase())}
+                placeholder="USD"
+                maxLength={3}
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateClientOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? 'Creating...' : 'Create client'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -66,6 +66,7 @@ const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
     id: e.id,
     description: e.description || "",
     projectId: e.projectId || "",
+    clientId: e.clientId ?? null,
     date: format(e.startTime, "yyyy-MM-dd"),
     startTime: format(e.startTime, "hh:mm a"),
     startTimeISO: e.startTime.toISOString(),

@@ -60,6 +60,7 @@ export interface TimeEntry {
   id: string;
   description: string;
   projectId: string;
+  clientId?: string | null;
   date: string; // YYYY-MM-DD
   startTime: string; // ISO string or simple time string for UI
   startTimeISO?: string; // Full ISO timestamp for calculations

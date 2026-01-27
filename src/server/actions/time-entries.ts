@@ -14,6 +14,7 @@ const startTimerSchema = z.object({
 
 const logManualEntrySchema = z.object({
   projectId: z.string().uuid().nullable(),
+  clientId: z.string().uuid().nullable().optional(),
   description: z.string().max(500, "Description must be 500 characters or less"),
   startTime: z.date(),
   endTime: z.date(),
@@ -92,9 +93,17 @@ export async function startTimer(projectId: string | null, description: string) 
     }
 
     // 2. Start new entry
+    const project = projectId
+      ? await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { clientId: true }
+        })
+      : null;
+
     await prisma.timeEntry.create({
       data: {
         projectId: parsed.data.projectId,
+        clientId: project?.clientId ?? null,
         description: parsed.data.description,
         startTime: new Date(),
       }
@@ -150,6 +159,7 @@ export async function stopTimer(id: string) {
 
 export async function logManualTimeEntry(data: {
   projectId: string | null;
+  clientId?: string | null;
   description: string;
   startTime: Date;
   endTime: Date;
@@ -160,7 +170,7 @@ export async function logManualTimeEntry(data: {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { projectId, description, startTime, endTime, isBillable } = parsed.data;
+  const { projectId, clientId, description, startTime, endTime, isBillable } = parsed.data;
   const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 
   if (durationSeconds < 0) {
@@ -168,9 +178,17 @@ export async function logManualTimeEntry(data: {
   }
 
   try {
+    const project = projectId
+      ? await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { clientId: true }
+        })
+      : null;
+
     await prisma.timeEntry.create({
       data: {
         projectId,
+        clientId: project?.clientId ?? clientId ?? null,
         description,
         startTime,
         endTime,

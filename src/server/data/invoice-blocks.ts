@@ -85,15 +85,31 @@ export async function calculateBlockHours(
 
     const projectIds = projects.map((p) => p.id);
 
-    if (projectIds.length === 0) return 0;
+    if (projectIds.length === 0) {
+      const result = await prisma.timeEntry.aggregate({
+        where: {
+          startTime: { gte: startDate },
+          ...(endDate ? { startTime: { lte: endDate } } : {}),
+          endTime: { not: null },
+          clientId,
+        },
+        _sum: { duration: true },
+      });
+
+      const totalSeconds = result._sum.duration || 0;
+      return parseFloat((totalSeconds / 3600).toFixed(2));
+    }
 
     // Sum time entries within the date range
     const result = await prisma.timeEntry.aggregate({
       where: {
-        projectId: { in: projectIds },
         startTime: { gte: startDate },
         ...(endDate ? { startTime: { lte: endDate } } : {}),
         endTime: { not: null }, // Only completed entries
+        OR: [
+          { projectId: { in: projectIds } },
+          { clientId },
+        ],
       },
       _sum: { duration: true },
     });
@@ -120,13 +136,27 @@ export async function getClientHoursTracked(clientId: string): Promise<number> {
 
     const projectIds = projects.map((p) => p.id);
 
-    if (projectIds.length === 0) return 0;
+    if (projectIds.length === 0) {
+      const result = await prisma.timeEntry.aggregate({
+        where: {
+          endTime: { not: null },
+          clientId,
+        },
+        _sum: { duration: true },
+      });
+
+      const totalSeconds = result._sum.duration || 0;
+      return parseFloat((totalSeconds / 3600).toFixed(2));
+    }
 
     // Sum all time entries
     const result = await prisma.timeEntry.aggregate({
       where: {
-        projectId: { in: projectIds },
         endTime: { not: null },
+        OR: [
+          { projectId: { in: projectIds } },
+          { clientId },
+        ],
       },
       _sum: { duration: true },
     });
