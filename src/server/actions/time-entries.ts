@@ -28,6 +28,26 @@ const updateTimeEntrySchema = z.object({
   isBillable: z.boolean().optional(),
 });
 
+function calculatePausedSeconds(params: {
+  pausedAt: Date | null;
+  pausedSeconds: number | null;
+  endTime: Date;
+}) {
+  const basePaused = params.pausedSeconds ?? 0;
+  if (!params.pausedAt) return basePaused;
+  const extra = Math.floor((params.endTime.getTime() - params.pausedAt.getTime()) / 1000);
+  return basePaused + Math.max(0, extra);
+}
+
+function calculateDurationSeconds(params: {
+  startTime: Date;
+  endTime: Date;
+  pausedSeconds: number;
+}) {
+  const totalSeconds = Math.floor((params.endTime.getTime() - params.startTime.getTime()) / 1000);
+  return Math.max(0, totalSeconds - params.pausedSeconds);
+}
+
 export async function startTimer(projectId: string | null, description: string) {
   const parsed = startTimerSchema.safeParse({ projectId, description });
   if (!parsed.success) {
@@ -41,19 +61,30 @@ export async function startTimer(projectId: string | null, description: string) 
     // Fetch active entries first to calculate duration for each
     const activeEntries = await prisma.timeEntry.findMany({
       where: { endTime: null },
-      select: { id: true, startTime: true }
+      select: { id: true, startTime: true, pausedAt: true, pausedSeconds: true }
     });
 
     // Update each active entry with calculated duration
     if (activeEntries.length > 0) {
       await Promise.all(
         activeEntries.map(entry => {
-          const durationSeconds = Math.floor((endTime.getTime() - entry.startTime.getTime()) / 1000);
+          const totalPausedSeconds = calculatePausedSeconds({
+            pausedAt: entry.pausedAt,
+            pausedSeconds: entry.pausedSeconds,
+            endTime
+          });
+          const durationSeconds = calculateDurationSeconds({
+            startTime: entry.startTime,
+            endTime,
+            pausedSeconds: totalPausedSeconds
+          });
           return prisma.timeEntry.update({
             where: { id: entry.id },
             data: {
               endTime,
-              duration: durationSeconds
+              duration: durationSeconds,
+              pausedAt: null,
+              pausedSeconds: totalPausedSeconds
             }
           });
         })
@@ -88,13 +119,24 @@ export async function stopTimer(id: string) {
     if (!entry) return { success: false, error: "Entry not found" };
 
     const endTime = new Date();
-    const durationSeconds = Math.floor((endTime.getTime() - entry.startTime.getTime()) / 1000);
+    const totalPausedSeconds = calculatePausedSeconds({
+      pausedAt: entry.pausedAt,
+      pausedSeconds: entry.pausedSeconds,
+      endTime
+    });
+    const durationSeconds = calculateDurationSeconds({
+      startTime: entry.startTime,
+      endTime,
+      pausedSeconds: totalPausedSeconds
+    });
 
     await prisma.timeEntry.update({
       where: { id: parsed.data },
       data: {
         endTime,
-        duration: durationSeconds
+        duration: durationSeconds,
+        pausedAt: null,
+        pausedSeconds: totalPausedSeconds
       }
     });
 
@@ -197,7 +239,16 @@ export async function updateTimeEntry(id: string, data: {
 
     let duration = existingEntry.duration;
     if (newEndTime) {
-      duration = Math.floor((newEndTime.getTime() - newStartTime.getTime()) / 1000);
+      const totalPausedSeconds = calculatePausedSeconds({
+        pausedAt: existingEntry.pausedAt,
+        pausedSeconds: existingEntry.pausedSeconds,
+        endTime: newEndTime
+      });
+      duration = calculateDurationSeconds({
+        startTime: newStartTime,
+        endTime: newEndTime,
+        pausedSeconds: totalPausedSeconds
+      });
       if (duration < 0) {
         return { success: false, error: "End time cannot be before start time" };
       }
@@ -212,6 +263,7 @@ export async function updateTimeEntry(id: string, data: {
         ...(endTime !== undefined && { endTime }),
         ...(isBillable !== undefined && { isBillable }),
         ...(newEndTime && { duration }),
+        ...(endTime !== undefined && endTime !== null && { pausedAt: null }),
       }
     });
 
@@ -220,5 +272,67 @@ export async function updateTimeEntry(id: string, data: {
   } catch (error) {
     console.error("Failed to update entry:", error);
     return { success: false, error: "Failed to update entry" };
+  }
+}
+
+export async function pauseTimer(id: string) {
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid entry ID" };
+  }
+
+  try {
+    const entry = await prisma.timeEntry.findUnique({ where: { id: parsed.data } });
+    if (!entry) return { success: false, error: "Entry not found" };
+    if (entry.endTime) return { success: false, error: "Entry already stopped" };
+    if (entry.pausedAt) return { success: true };
+
+    await prisma.timeEntry.update({
+      where: { id: parsed.data },
+      data: {
+        pausedAt: new Date()
+      }
+    });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to pause timer:", error);
+    return { success: false, error: "Failed to pause timer" };
+  }
+}
+
+export async function resumeTimer(id: string) {
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid entry ID" };
+  }
+
+  try {
+    const entry = await prisma.timeEntry.findUnique({ where: { id: parsed.data } });
+    if (!entry) return { success: false, error: "Entry not found" };
+    if (entry.endTime) return { success: false, error: "Entry already stopped" };
+    if (!entry.pausedAt) return { success: true };
+
+    const now = new Date();
+    const pausedSeconds = calculatePausedSeconds({
+      pausedAt: entry.pausedAt,
+      pausedSeconds: entry.pausedSeconds,
+      endTime: now
+    });
+
+    await prisma.timeEntry.update({
+      where: { id: parsed.data },
+      data: {
+        pausedAt: null,
+        pausedSeconds
+      }
+    });
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to resume timer:", error);
+    return { success: false, error: "Failed to resume timer" };
   }
 }

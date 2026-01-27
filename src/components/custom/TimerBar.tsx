@@ -1,5 +1,5 @@
 import React, { useState, useTransition } from 'react';
-import { Play, Square, Plus, Loader2 } from 'lucide-react';
+import { Play, Square, Plus, Loader2, Pause } from 'lucide-react';
 import { Project, Client } from '@/types';
 import { createProject } from '@/server/actions/projects';
 import {
@@ -25,9 +25,12 @@ interface TimerBarProps {
   projects: Project[];
   clients?: Client[];
   activeProject: Project | null;
-  isRunning: boolean;
+  isActive: boolean;
+  isPaused: boolean;
   onStart: (projectId: string | null, description: string) => Promise<void>;
   onStop: () => Promise<void>;
+  onPause: () => Promise<void>;
+  onResume: () => Promise<void>;
   elapsedSeconds: number;
 }
 
@@ -35,9 +38,12 @@ const TimerBar: React.FC<TimerBarProps> = ({
   projects,
   clients = [],
   activeProject,
-  isRunning,
+  isActive,
+  isPaused,
   onStart,
   onStop,
+  onPause,
+  onResume,
   elapsedSeconds
 }) => {
   const [taskInput, setTaskInput] = useState('');
@@ -91,7 +97,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
     });
   };
 
-  if (isRunning) {
+  if (isActive) {
     return (
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-indigo-100 px-6 py-3 shadow-sm transition-all duration-300">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
@@ -101,7 +107,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
             </span>
             <div className="h-8 w-px bg-slate-200"></div>
             <div className="flex flex-col justify-center">
-               <span className="text-sm font-medium text-slate-900">{activeProject?.name ? 'Tracking' : 'Untitled Task'}</span>
+               <span className="text-sm font-medium text-slate-900">{isPaused ? 'Paused' : activeProject?.name ? 'Tracking' : 'Untitled Task'}</span>
                {activeProject && (
                  <span className="text-xs text-slate-500 flex items-center gap-1">
                    <span className={`w-1.5 h-1.5 rounded-full bg-indigo-500`}></span>
@@ -112,6 +118,23 @@ const TimerBar: React.FC<TimerBarProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+             {isPaused ? (
+               <button
+                 onClick={onResume}
+                 className="flex items-center justify-center w-10 h-10 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100 hover:scale-105 transition-all active:scale-95 border border-emerald-200"
+                 title="Resume Timer"
+               >
+                 <Play size={18} fill="currentColor" />
+               </button>
+             ) : (
+               <button
+                 onClick={onPause}
+                 className="flex items-center justify-center w-10 h-10 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 hover:scale-105 transition-all active:scale-95 border border-amber-200"
+                 title="Pause Timer"
+               >
+                 <Pause size={18} />
+               </button>
+             )}
              <button 
                 onClick={onStop}
                 className="flex items-center justify-center w-10 h-10 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-100 hover:scale-105 transition-all active:scale-95 border border-rose-200"

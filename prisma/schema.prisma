@@ -98,6 +98,8 @@ model TimeEntry {
   startTime   DateTime
   endTime     DateTime? // Nullable if timer is currently running
   duration    Int?      // Calculated seconds. Null if running.
+  pausedAt    DateTime? // When the timer was paused (if currently paused)
+  pausedSeconds Int     @default(0) // Accumulated paused time in seconds
   
   isBillable  Boolean   @default(true)
   

@@ -48,7 +48,16 @@ const mapClient = (c: ClientWithData): Client => ({
 });
 
 const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
-  const durationSeconds = e.duration || 0;
+  const pausedSeconds = e.pausedSeconds ?? 0;
+  const pausedAt = e.pausedAt ?? null;
+  const isPaused = !e.endTime && !!pausedAt;
+  const effectiveEnd = e.endTime
+    ? e.endTime.getTime()
+    : pausedAt
+      ? pausedAt.getTime()
+      : Date.now();
+  const computedSeconds = Math.floor((effectiveEnd - e.startTime.getTime()) / 1000) - pausedSeconds;
+  const durationSeconds = e.duration ?? Math.max(0, computedSeconds);
   const hours = Math.floor(durationSeconds / 3600);
   const minutes = Math.floor((durationSeconds % 3600) / 60);
   const seconds = durationSeconds % 60;
@@ -60,7 +69,10 @@ const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
     date: format(e.startTime, "yyyy-MM-dd"),
     startTime: format(e.startTime, "hh:mm a"),
     startTimeISO: e.startTime.toISOString(),
-    endTime: e.endTime ? format(e.endTime, "hh:mm a") : "Running...",
+    pausedAtISO: pausedAt ? pausedAt.toISOString() : null,
+    pausedSeconds,
+    isPaused,
+    endTime: e.endTime ? format(e.endTime, "hh:mm a") : isPaused ? "Paused" : "Running...",
     duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
     durationSeconds: durationSeconds,
     isBillable: e.isBillable,

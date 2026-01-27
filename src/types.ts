@@ -63,6 +63,9 @@ export interface TimeEntry {
   date: string; // YYYY-MM-DD
   startTime: string; // ISO string or simple time string for UI
   startTimeISO?: string; // Full ISO timestamp for calculations
+  pausedAtISO?: string | null;
+  pausedSeconds?: number;
+  isPaused?: boolean;
   endTime: string;
   duration: string;
   durationSeconds: number; // Helper for calculations

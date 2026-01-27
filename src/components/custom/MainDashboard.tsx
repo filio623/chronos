@@ -12,7 +12,7 @@ import TimesheetView from '@/components/custom/TimesheetView';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
 import { Project, TimeEntry, Client, InvoiceBlock } from '@/types';
 import { tailwindToHex } from '@/lib/colors';
-import { startTimer, stopTimer } from '@/server/actions/time-entries';
+import { startTimer, stopTimer, pauseTimer, resumeTimer } from '@/server/actions/time-entries';
 
 interface MainDashboardProps {
   initialProjects: Project[];
@@ -29,12 +29,16 @@ interface MainDashboardProps {
 }
 
 // Helper to calculate elapsed seconds from a timer's start time
-function calculateElapsedSeconds(timer: TimeEntry | null): number {
+function calculateElapsedSeconds(timer: TimeEntry | null, isPaused: boolean): number {
   if (!timer) return 0;
   const startStr = timer.startTimeISO || timer.startTime;
   const start = new Date(startStr).getTime();
   if (isNaN(start)) return 0;
-  return Math.max(0, Math.floor((Date.now() - start) / 1000));
+  const pausedSeconds = timer.pausedSeconds ?? 0;
+  const pausedAtStr = timer.pausedAtISO || null;
+  const endMs = isPaused && pausedAtStr ? new Date(pausedAtStr).getTime() : Date.now();
+  if (pausedAtStr && isNaN(endMs)) return Math.max(0, Math.floor((Date.now() - start) / 1000) - pausedSeconds);
+  return Math.max(0, Math.floor((endMs - start) / 1000) - pausedSeconds);
 }
 
 export default function MainDashboard({
@@ -48,23 +52,34 @@ export default function MainDashboard({
 }: MainDashboardProps) {
   const [currentView, setCurrentView] = useState('dashboard');
   // Initialize elapsed seconds from activeTimer immediately to avoid race condition
-  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer));
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer, !!activeTimer?.isPaused));
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const lastTimerIdRef = useRef<string | null>(activeTimer?.id || null);
   const [isPending, startTransition] = useTransition();
 
   // Optimistic timer state for instant UI feedback
   const [optimisticTimerState, setOptimisticTimerState] = useOptimistic(
-    { isRunning: !!activeTimer, timerId: activeTimer?.id || null },
-    (state, action: { type: 'start' | 'stop' }) => {
+    {
+      status: activeTimer ? (activeTimer.pausedAtISO ? 'paused' : 'running') : 'stopped',
+      timerId: activeTimer?.id || null
+    },
+    (state, action: { type: 'start' | 'stop' | 'pause' | 'resume' }) => {
       if (action.type === 'start') {
-        return { isRunning: true, timerId: 'optimistic-temp' };
+        return { status: 'running', timerId: 'optimistic-temp' };
       }
-      return { isRunning: false, timerId: null };
+      if (action.type === 'pause') {
+        return { status: 'paused', timerId: state.timerId };
+      }
+      if (action.type === 'resume') {
+        return { status: 'running', timerId: state.timerId };
+      }
+      return { status: 'stopped', timerId: null };
     }
   );
 
-  const isRunning = optimisticTimerState.isRunning;
+  const isRunning = optimisticTimerState.status === 'running';
+  const isPaused = optimisticTimerState.status === 'paused';
+  const isActive = optimisticTimerState.status !== 'stopped';
 
   // Initialize from active timer - only recalculate when timer ID changes
   useEffect(() => {
@@ -86,7 +101,7 @@ export default function MainDashboard({
 
         // Safety check for NaN
         if (!isNaN(start)) {
-          setElapsedSeconds(Math.floor((now - start) / 1000));
+          setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
         } else {
           console.error("Invalid start time for active timer:", startStr);
           setElapsedSeconds(0);
@@ -104,7 +119,7 @@ export default function MainDashboard({
     let interval: NodeJS.Timeout;
     if (isRunning && activeTimer) {
       interval = setInterval(() => {
-        setElapsedSeconds(calculateElapsedSeconds(activeTimer));
+        setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -117,10 +132,15 @@ export default function MainDashboard({
       const secs = elapsedSeconds % 60;
       const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
       document.title = `${timeStr} - Chronos`;
+    } else if (isPaused && elapsedSeconds > 0) {
+      const mins = Math.floor(elapsedSeconds / 60);
+      const secs = elapsedSeconds % 60;
+      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      document.title = `Paused • ${timeStr} - Chronos`;
     } else {
       document.title = 'Chronos';
     }
-  }, [isRunning, elapsedSeconds]);
+  }, [isRunning, isPaused, elapsedSeconds]);
 
   const handleRestartTask = async (entry: TimeEntry) => {
     const proj = initialProjects.find(p => p.id === entry.projectId) || null;
@@ -153,6 +173,23 @@ export default function MainDashboard({
     });
   };
 
+  const handlePauseTimer = async () => {
+    if (!activeTimer) return;
+        setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
+    startTransition(async () => {
+      setOptimisticTimerState({ type: 'pause' });
+      await pauseTimer(activeTimer.id);
+    });
+  };
+
+  const handleResumeTimer = async () => {
+    if (!activeTimer) return;
+    startTransition(async () => {
+      setOptimisticTimerState({ type: 'resume' });
+      await resumeTimer(activeTimer.id);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
       
@@ -168,9 +205,12 @@ export default function MainDashboard({
             projects={initialProjects}
             clients={initialClients}
             activeProject={activeProject}
-            isRunning={isRunning}
+            isActive={isActive}
+            isPaused={isPaused}
             onStart={handleStartTimer}
             onStop={handleStopTimer}
+            onPause={handlePauseTimer}
+            onResume={handleResumeTimer}
             elapsedSeconds={elapsedSeconds}
         />
 

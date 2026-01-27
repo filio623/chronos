@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }
             <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
                 <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <span className="font-bold text-slate-900 text-sm tracking-tight">RetainerTracker</span>
+            <span className="font-bold text-slate-900 text-sm tracking-tight">Chronos</span>
         </div>
       </div>
 
