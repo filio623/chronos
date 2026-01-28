@@ -76,6 +76,8 @@ interface ReportsViewProps {
   clients?: { id: string; name: string }[];
 }
 
+type ProjectOption = { id: string; name: string; clientId?: string | null };
+
 const COLOR_MAP: Record<string, string> = {
   'text-indigo-600': '#4f46e5',
   'text-purple-600': '#9333ea',
@@ -222,6 +224,39 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
         break;
     }
   };
+
+  const filteredProjects: ProjectOption[] = selectedClient
+    ? projects.filter((p: ProjectOption) => p.clientId === selectedClient)
+    : projects;
+
+  const rawSeries = groupBy === 'day'
+    ? [{ key: 'total', label: 'Total', color: '#6366f1' }]
+    : Array.from(
+        data.dailyActivityGrouped.reduce((map, item) => {
+          const key = item.name;
+          if (!map.has(key)) {
+            map.set(key, { key, label: key, color: getHexColor(item.color) });
+          }
+          return map;
+        }, new Map<string, { key: string; label: string; color: string }>())
+      ).map(([, value]) => value);
+
+  const chartSeries = rawSeries.length > 0 ? rawSeries : [{ key: 'total', label: 'Total', color: '#6366f1' }];
+
+  const chartData = data.dailyActivity.map((day) => {
+    const base: Record<string, number | string> = { date: day.date, total: day.hours };
+    if (groupBy !== 'day') {
+      chartSeries.forEach((series) => {
+        base[series.key] = 0;
+      });
+      data.dailyActivityGrouped
+        .filter((entry) => entry.day === day.date)
+        .forEach((entry) => {
+          base[entry.name] = entry.hours;
+        });
+    }
+    return base;
+  });
 
   const groupByLabel = groupBy === 'client' ? 'Client' : groupBy === 'day' ? 'Day' : 'Project';
 
@@ -631,35 +666,3 @@ const ReportRow: React.FC<{
 );
 
 export default ReportsView;
-  const filteredProjects = selectedClient
-    ? projects.filter(p => p.clientId === selectedClient)
-    : projects;
-
-  const rawSeries = groupBy === 'day'
-    ? [{ key: 'total', label: 'Total', color: '#6366f1' }]
-    : Array.from(
-        data.dailyActivityGrouped.reduce((map, item) => {
-          const key = item.name;
-          if (!map.has(key)) {
-            map.set(key, { key, label: key, color: getHexColor(item.color) });
-          }
-          return map;
-        }, new Map<string, { key: string; label: string; color: string }>())
-      ).map(([, value]) => value);
-
-  const chartSeries = rawSeries.length > 0 ? rawSeries : [{ key: 'total', label: 'Total', color: '#6366f1' }];
-
-  const chartData = data.dailyActivity.map(day => {
-    const base: Record<string, number | string> = { date: day.date, total: day.hours };
-    if (groupBy !== 'day') {
-      chartSeries.forEach(series => {
-        base[series.key] = 0;
-      });
-      data.dailyActivityGrouped
-        .filter(entry => entry.day === day.date)
-        .forEach(entry => {
-          base[entry.name] = entry.hours;
-        });
-    }
-    return base;
-  });
