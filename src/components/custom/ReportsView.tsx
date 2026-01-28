@@ -482,7 +482,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                 />
                 <Tooltip
                   cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  content={<StackedTooltip />}
                 />
                 {chartSeries.map((series, index) => (
                   <Bar
@@ -664,5 +664,29 @@ const ReportRow: React.FC<{
     </div>
   </div>
 );
+
+const StackedTooltip: React.FC<{
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number }>;
+  label?: string;
+}> = ({ active, payload, label }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const visible = payload.filter((item) => typeof item.value === 'number' && item.value > 0);
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="rounded-lg bg-white shadow-md border border-slate-100 px-3 py-2 text-xs text-slate-700">
+      <div className="font-medium text-slate-900 mb-1">{label}</div>
+      <div className="space-y-1">
+        {visible.map((item) => (
+          <div key={item.name} className="flex items-center justify-between gap-3">
+            <span className="truncate">{item.name}</span>
+            <span className="font-mono text-slate-600">{item.value!.toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default ReportsView;
