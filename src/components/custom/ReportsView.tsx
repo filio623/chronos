@@ -482,7 +482,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                 />
                 <Tooltip
                   cursor={{ fill: '#f8fafc' }}
-                  content={<StackedTooltip />}
+                  content={(props) => <StackedTooltip {...props} />}
                 />
                 {chartSeries.map((series, index) => (
                   <Bar
