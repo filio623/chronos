@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -44,7 +44,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ReportsViewProps {
   data: {
@@ -90,6 +91,8 @@ const getHexColor = (color: string) => {
 type DatePreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30Days' | 'thisYear' | 'custom';
 
 const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients = [] }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'summary' | 'detailed' | 'weekly' | 'shared'>('summary');
   const [datePreset, setDatePreset] = useState<DatePreset>('last30Days');
   const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date }>({
@@ -122,39 +125,103 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     return labels[datePreset];
   };
 
+  const updateParams = (updates: Record<string, string | null | undefined>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  useEffect(() => {
+    const urlTab = searchParams.get('reportTab') as typeof activeTab | null;
+    const urlGroupBy = searchParams.get('groupBy') as typeof groupBy | null;
+    const urlProject = searchParams.get('project');
+    const urlClient = searchParams.get('client');
+    const urlFrom = searchParams.get('from');
+    const urlTo = searchParams.get('to');
+
+    if (urlTab && ['summary', 'detailed', 'weekly', 'shared'].includes(urlTab)) {
+      setActiveTab(urlTab);
+    }
+
+    if (urlGroupBy && ['project', 'client', 'day'].includes(urlGroupBy)) {
+      setGroupBy(urlGroupBy);
+    }
+
+    setSelectedProject(urlProject || null);
+    setSelectedClient(urlClient || null);
+
+    if (urlFrom && urlTo) {
+      const from = new Date(urlFrom);
+      const to = new Date(urlTo);
+      if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+        setCustomDateRange({ from, to });
+        setDatePreset('custom');
+      }
+    }
+  }, [searchParams]);
+
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
     const now = new Date();
     switch (preset) {
       case 'today':
         setCustomDateRange({ from: now, to: now });
+        updateParams({ from: format(now, 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
         break;
       case 'yesterday':
         const yesterday = subDays(now, 1);
         setCustomDateRange({ from: yesterday, to: yesterday });
+        updateParams({ from: format(yesterday, 'yyyy-MM-dd'), to: format(yesterday, 'yyyy-MM-dd') });
         break;
       case 'thisWeek':
         setCustomDateRange({ from: startOfWeek(now), to: endOfWeek(now) });
+        updateParams({ from: format(startOfWeek(now), 'yyyy-MM-dd'), to: format(endOfWeek(now), 'yyyy-MM-dd') });
         break;
       case 'lastWeek':
         const lastWeekStart = startOfWeek(subDays(now, 7));
         setCustomDateRange({ from: lastWeekStart, to: endOfWeek(lastWeekStart) });
+        updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart), 'yyyy-MM-dd') });
         break;
       case 'thisMonth':
         setCustomDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+        updateParams({ from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd') });
         break;
       case 'lastMonth':
         const lastMonth = subDays(startOfMonth(now), 1);
         setCustomDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
+        updateParams({ from: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), to: format(endOfMonth(lastMonth), 'yyyy-MM-dd') });
         break;
       case 'last30Days':
         setCustomDateRange({ from: subDays(now, 30), to: now });
+        updateParams({ from: format(subDays(now, 30), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
         break;
       case 'thisYear':
         setCustomDateRange({ from: startOfYear(now), to: now });
+        updateParams({ from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
         break;
     }
   };
+
+  const groupByLabel = groupBy === 'client' ? 'Client' : groupBy === 'day' ? 'Day' : 'Project';
+
+  const formatDistributionLabel = (label: string) => {
+    if (groupBy === 'day') {
+      try {
+        return format(parseISO(label), 'MMM d');
+      } catch {
+        return label;
+      }
+    }
+    return label;
+  };
+
+  const totalDistributionHours = data.projectDistribution.reduce((acc, item) => acc + item.hours, 0);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
@@ -164,7 +231,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
         <div className="flex items-center gap-6">
           <h2 className="text-2xl font-semibold text-slate-800">Reports</h2>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              const next = v as typeof activeTab;
+              setActiveTab(next);
+              updateParams({ reportTab: next });
+            }}
+          >
             <TabsList className="bg-slate-200/50">
               <TabsTrigger value="summary" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
                 Summary
@@ -219,6 +293,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                     if (range?.from && range?.to) {
                       setCustomDateRange({ from: range.from, to: range.to });
                       setDatePreset('custom');
+                      updateParams({
+                        from: format(range.from, 'yyyy-MM-dd'),
+                        to: format(range.to, 'yyyy-MM-dd')
+                      });
                     }
                   }}
                   numberOfMonths={2}
@@ -269,6 +347,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               onClick={() => {
                 setSelectedProject(null);
                 setSelectedClient(null);
+                updateParams({ project: null, client: null });
               }}
             >
               Clear
@@ -276,7 +355,10 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           )}
         </div>
 
-        <Button className="bg-sky-400 hover:bg-sky-500 text-white text-sm font-semibold uppercase tracking-wide shadow-sm h-9">
+        <Button
+          className="bg-sky-400 hover:bg-sky-500 text-white text-sm font-semibold uppercase tracking-wide shadow-sm h-9"
+          onClick={() => updateParams({ project: selectedProject, client: selectedClient })}
+        >
           Apply Filter
         </Button>
       </div>
@@ -345,7 +427,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           {/* Group By Controls */}
           <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
             <span className="text-xs text-slate-500 font-medium">Group by:</span>
-            <Select value={groupBy} onValueChange={(v) => setGroupBy(v as typeof groupBy)}>
+            <Select
+              value={groupBy}
+              onValueChange={(v) => {
+                const next = v as typeof groupBy;
+                setGroupBy(next);
+                updateParams({ groupBy: next });
+              }}
+            >
               <SelectTrigger className="w-[120px] h-7 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -364,11 +453,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               {data.projectDistribution.map((item, idx) => (
                 <ReportRow
                   key={idx}
-                  label={item.name}
-                  sublabel="Project"
+                  label={formatDistributionLabel(item.name)}
+                  sublabel={groupByLabel}
                   time={`${item.hours.toFixed(2)}h`}
                   amount="0.00"
-                  color={item.color.replace('text-', 'bg-')}
+                  color={getHexColor(item.color)}
                 />
               ))}
               {data.projectDistribution.length === 0 && (
@@ -377,26 +466,56 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             </div>
 
             {/* Right: Donut Chart */}
-            <div className="w-full lg:w-[400px] bg-white flex items-center justify-center p-8">
+            <div className="w-full lg:w-[400px] bg-white flex items-center justify-center p-8 relative">
               {data.projectDistribution.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <RePieChart>
-                    <Pie
-                      data={data.projectDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="hours"
-                    >
-                      {data.projectDistribution.map((entry, index) => (
-                        <ReCell key={`cell-${index}`} fill={getHexColor(entry.color)} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </RePieChart>
-                </ResponsiveContainer>
+                <div className="w-full">
+                  <div className="relative h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RePieChart>
+                        <Pie
+                          data={data.projectDistribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="hours"
+                        >
+                          {data.projectDistribution.map((entry, index) => (
+                            <ReCell key={`cell-${index}`} fill={getHexColor(entry.color)} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [`${value.toFixed(2)}h`, 'Hours']}
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        />
+                      </RePieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <div className="text-xs text-slate-500">Total</div>
+                      <div className="text-lg font-mono font-semibold text-slate-800">
+                        {totalDistributionHours.toFixed(2)}h
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {data.projectDistribution.map((item, idx) => {
+                      const percent = totalDistributionHours > 0 ? (item.hours / totalDistributionHours) * 100 : 0;
+                      return (
+                        <div key={`legend-${idx}`} className="flex items-center justify-between text-xs text-slate-600">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getHexColor(item.color) }}></span>
+                            <span className="truncate">{formatDistributionLabel(item.name)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-slate-400">{percent.toFixed(0)}%</span>
+                            <span className="font-mono text-slate-700">{item.hours.toFixed(2)}h</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : (
                 <div className="text-slate-400 text-sm italic">No data to display</div>
               )}
@@ -457,7 +576,7 @@ const ReportRow: React.FC<{
   <div className="border-b border-slate-100 bg-white">
     <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 cursor-pointer group transition-colors">
       <div className="flex items-center gap-3">
-        <div className={`w-3 h-3 rounded-full ${color}`}></div>
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
         <div>
           <div className="text-sm font-medium text-indigo-600 group-hover:underline decoration-slate-300 underline-offset-2 transition-all">{label}</div>
           <div className="text-xs text-slate-500">- {sublabel}</div>

@@ -89,6 +89,15 @@ export default async function Home(props: {
   const endDate = endOfDay(new Date());
   const startDate = startOfDay(subDays(endDate, 30));
 
+  const reportFilters = {
+    projectId: typeof searchParams?.project === 'string' ? searchParams.project : undefined,
+    clientId: typeof searchParams?.client === 'string' ? searchParams.client : undefined,
+    groupBy: typeof searchParams?.groupBy === 'string' ? searchParams.groupBy as 'project' | 'client' | 'day' : 'project',
+    tab: typeof searchParams?.reportTab === 'string' ? searchParams.reportTab as 'summary' | 'detailed' | 'weekly' | 'shared' : 'summary',
+    from: typeof searchParams?.from === 'string' ? startOfDay(new Date(searchParams.from)) : startDate,
+    to: typeof searchParams?.to === 'string' ? endOfDay(new Date(searchParams.to)) : endDate,
+  };
+
   // Parse filters
   const projectFilters = {
     search: typeof searchParams?.search === 'string' ? searchParams.search : undefined,
@@ -114,9 +123,9 @@ export default async function Home(props: {
     getClientsWithData(),
     getTimeEntries(),
     getActiveTimer(),
-    getSummaryMetrics(startDate, endDate),
-    getDailyActivity(startDate, endDate),
-    getProjectDistribution(startDate, endDate)
+    getSummaryMetrics(reportFilters.from, reportFilters.to, reportFilters),
+    getDailyActivity(reportFilters.from, reportFilters.to, reportFilters),
+    getProjectDistribution(reportFilters.from, reportFilters.to, reportFilters)
   ]);
 
   // Fetch invoice block history for all clients

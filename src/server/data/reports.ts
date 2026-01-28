@@ -1,20 +1,51 @@
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
+import { Prisma } from "@prisma/client";
 
-export async function getSummaryMetrics(startDate: Date, endDate: Date) {
+export type ReportFilters = {
+  projectId?: string;
+  clientId?: string;
+  groupBy?: 'project' | 'client' | 'day';
+};
+
+async function buildEntryWhere(startDate: Date, endDate: Date, filters?: ReportFilters) {
+  const where: Prisma.TimeEntryWhereInput = {
+    startTime: { gte: startDate, lte: endDate },
+    endTime: { not: null },
+  };
+
+  if (filters?.projectId) {
+    where.projectId = filters.projectId;
+    return where;
+  }
+
+  if (filters?.clientId) {
+    const projectIds = await prisma.project.findMany({
+      where: { clientId: filters.clientId },
+      select: { id: true },
+    });
+
+    const ids = projectIds.map(p => p.id);
+    where.OR = [
+      { clientId: filters.clientId },
+      ...(ids.length > 0 ? [{ projectId: { in: ids } }] : []),
+    ];
+  }
+
+  return where;
+}
+
+export async function getSummaryMetrics(startDate: Date, endDate: Date, filters?: ReportFilters) {
+  const where = await buildEntryWhere(startDate, endDate, filters);
   // Use Prisma aggregate instead of fetching all records
   const [totalAgg, billableAgg] = await Promise.all([
     prisma.timeEntry.aggregate({
-      where: {
-        startTime: { gte: startDate, lte: endDate },
-        endTime: { not: null },
-      },
+      where,
       _sum: { duration: true },
     }),
     prisma.timeEntry.aggregate({
       where: {
-        startTime: { gte: startDate, lte: endDate },
-        endTime: { not: null },
+        ...where,
         isBillable: true,
       },
       _sum: { duration: true },
@@ -28,19 +59,26 @@ export async function getSummaryMetrics(startDate: Date, endDate: Date) {
   };
 }
 
-export async function getDailyActivity(startDate: Date, endDate: Date) {
+export async function getDailyActivity(startDate: Date, endDate: Date, filters?: ReportFilters) {
+  const filterProject = filters?.projectId;
+  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+
   // Use Prisma groupBy for daily aggregation
-  const dailyEntries = await prisma.$queryRaw<{ day: string; total_seconds: bigint }[]>`
-    SELECT
-      TO_CHAR("startTime", 'YYYY-MM-DD') as day,
-      COALESCE(SUM(duration), 0) as total_seconds
-    FROM "TimeEntry"
-    WHERE "startTime" >= ${startDate}
-      AND "startTime" <= ${endDate}
-      AND "endTime" IS NOT NULL
-    GROUP BY TO_CHAR("startTime", 'YYYY-MM-DD')
-    ORDER BY day
-  `;
+  const dailyEntries = await prisma.$queryRaw<{ day: string; total_seconds: bigint }[]>(
+    Prisma.sql`
+      SELECT
+        TO_CHAR("startTime", 'YYYY-MM-DD') as day,
+        COALESCE(SUM(duration), 0) as total_seconds
+      FROM "TimeEntry"
+      WHERE "startTime" >= ${startDate}
+        AND "startTime" <= ${endDate}
+        AND "endTime" IS NOT NULL
+        ${filterProject ? Prisma.sql`AND "projectId" = ${filterProject}` : Prisma.empty}
+        ${filterClient ? Prisma.sql`AND ("clientId" = ${filterClient} OR "projectId" IN (SELECT id FROM "Project" WHERE "clientId" = ${filterClient}))` : Prisma.empty}
+      GROUP BY TO_CHAR("startTime", 'YYYY-MM-DD')
+      ORDER BY day
+    `
+  );
 
   // Create a map from database results
   const dbMap = new Map<string, number>();
@@ -64,13 +102,56 @@ export async function getDailyActivity(startDate: Date, endDate: Date) {
   return result;
 }
 
-export async function getProjectDistribution(startDate: Date, endDate: Date) {
+export async function getProjectDistribution(startDate: Date, endDate: Date, filters?: ReportFilters) {
+  if (filters?.groupBy === 'client') {
+    const where = await buildEntryWhere(startDate, endDate, { ...filters, projectId: undefined });
+    const clientHours = await prisma.timeEntry.groupBy({
+      by: ['clientId'],
+      where: {
+        ...where,
+        clientId: { not: null },
+      },
+      _sum: { duration: true },
+    });
+
+    const clientIds = clientHours.map(c => c.clientId).filter(Boolean) as string[];
+    if (clientIds.length === 0) return [];
+
+    const clientDetails = await prisma.client.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, name: true, color: true },
+    });
+
+    const clientMap = new Map(clientDetails.map(c => [c.id, c]));
+
+    return clientHours
+      .map((c) => {
+        const client = c.clientId ? clientMap.get(c.clientId) : null;
+        if (!client) return null;
+        return {
+          name: client.name,
+          hours: parseFloat(((c._sum.duration || 0) / 3600).toFixed(2)),
+          color: client.color,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+  }
+
+  if (filters?.groupBy === 'day') {
+    const daily = await getDailyActivity(startDate, endDate, filters);
+    return daily.map(d => ({
+      name: d.date,
+      hours: d.hours,
+      color: 'text-slate-600',
+    }));
+  }
+
+  const where = await buildEntryWhere(startDate, endDate, filters);
   // Use Prisma groupBy with aggregation
   const projectHours = await prisma.timeEntry.groupBy({
     by: ['projectId'],
     where: {
-      startTime: { gte: startDate, lte: endDate },
-      endTime: { not: null },
+      ...where,
       projectId: { not: null },
     },
     _sum: { duration: true },
