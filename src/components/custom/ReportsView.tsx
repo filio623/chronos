@@ -17,7 +17,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  TooltipProps,
   ResponsiveContainer,
   PieChart as RePieChart,
   Pie,
@@ -483,7 +482,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                 />
                 <Tooltip
                   cursor={{ fill: '#f8fafc' }}
-                  content={(props) => <StackedTooltip {...props} />}
+                  content={(props) => (
+                    <StackedTooltip
+                      active={props.active}
+                      payload={props.payload as Array<{ name?: string | number; value?: number }>}
+                      label={props.label}
+                    />
+                  )}
                 />
                 {chartSeries.map((series, index) => (
                   <Bar
@@ -666,16 +671,20 @@ const ReportRow: React.FC<{
   </div>
 );
 
-type TooltipPayload = TooltipProps<number, string>;
+type MinimalTooltip = {
+  active?: boolean;
+  payload?: Array<{ name?: string | number; value?: number }>;
+  label?: string | number;
+};
 
-const StackedTooltip: React.FC<TooltipPayload> = ({ active, payload, label }) => {
+const StackedTooltip: React.FC<MinimalTooltip> = ({ active, payload, label }) => {
   if (!active || !payload || payload.length === 0) return null;
   const visible = payload.filter((item) => typeof item.value === 'number' && item.value > 0);
   if (visible.length === 0) return null;
 
   return (
     <div className="rounded-lg bg-white shadow-md border border-slate-100 px-3 py-2 text-xs text-slate-700">
-      <div className="font-medium text-slate-900 mb-1">{label}</div>
+      <div className="font-medium text-slate-900 mb-1">{String(label)}</div>
       <div className="space-y-1">
         {visible.map((item) => (
           <div key={String(item.name)} className="flex items-center justify-between gap-3">
