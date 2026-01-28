@@ -17,6 +17,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  TooltipProps,
   ResponsiveContainer,
   PieChart as RePieChart,
   Pie,
@@ -665,11 +666,9 @@ const ReportRow: React.FC<{
   </div>
 );
 
-const StackedTooltip: React.FC<{
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number }>;
-  label?: string;
-}> = ({ active, payload, label }) => {
+type TooltipPayload = TooltipProps<number, string>;
+
+const StackedTooltip: React.FC<TooltipPayload> = ({ active, payload, label }) => {
   if (!active || !payload || payload.length === 0) return null;
   const visible = payload.filter((item) => typeof item.value === 'number' && item.value > 0);
   if (visible.length === 0) return null;
@@ -679,9 +678,9 @@ const StackedTooltip: React.FC<{
       <div className="font-medium text-slate-900 mb-1">{label}</div>
       <div className="space-y-1">
         {visible.map((item) => (
-          <div key={item.name} className="flex items-center justify-between gap-3">
-            <span className="truncate">{item.name}</span>
-            <span className="font-mono text-slate-600">{item.value!.toFixed(2)}</span>
+          <div key={String(item.name)} className="flex items-center justify-between gap-3">
+            <span className="truncate">{String(item.name)}</span>
+            <span className="font-mono text-slate-600">{(item.value as number).toFixed(2)}</span>
           </div>
         ))}
       </div>
