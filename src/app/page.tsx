@@ -2,7 +2,7 @@ import MainDashboard from "@/components/custom/MainDashboard";
 import { getProjects, ProjectWithHours } from "@/server/data/projects";
 import { getClientsWithData, ClientWithData } from "@/server/data/clients";
 import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
-import { getSummaryMetrics, getDailyActivity, getProjectDistribution } from "@/server/data/reports";
+import { getSummaryMetrics, getDailyActivity, getDailyActivityGrouped, getProjectDistribution } from "@/server/data/reports";
 import { getInvoiceBlockHistory } from "@/server/data/invoice-blocks";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Project, Client, TimeEntry, InvoiceBlock, InvoiceBlockStatus } from "@/types";
@@ -117,6 +117,7 @@ export default async function Home(props: {
     activeTimerData,
     summaryMetrics,
     dailyActivity,
+    dailyActivityGrouped,
     projectDistribution
   ] = await Promise.all([
     getProjects(projectFilters),
@@ -125,6 +126,7 @@ export default async function Home(props: {
     getActiveTimer(),
     getSummaryMetrics(reportFilters.from, reportFilters.to, reportFilters),
     getDailyActivity(reportFilters.from, reportFilters.to, reportFilters),
+    getDailyActivityGrouped(reportFilters.from, reportFilters.to, reportFilters),
     getProjectDistribution(reportFilters.from, reportFilters.to, reportFilters)
   ]);
 
@@ -157,6 +159,7 @@ export default async function Home(props: {
       reportData={{
         summary: summaryMetrics,
         dailyActivity,
+        dailyActivityGrouped,
         projectDistribution
       }}
     />

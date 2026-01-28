@@ -24,6 +24,7 @@ interface MainDashboardProps {
   reportData: {
     summary: any;
     dailyActivity: any[];
+    dailyActivityGrouped: any[];
     projectDistribution: any[];
   };
 }
@@ -374,7 +375,7 @@ export default function MainDashboard({
             {currentView === 'reports' && (
               <ReportsView
                 data={reportData}
-                projects={initialProjects.map(p => ({ id: p.id, name: p.name }))}
+                projects={initialProjects.map(p => ({ id: p.id, name: p.name, clientId: p.clientId }))}
                 clients={initialClients.map(c => ({ id: c.id, name: c.name }))}
               />
             )}

@@ -58,13 +58,21 @@ interface ReportsViewProps {
       date: string;
       hours: number;
     }[];
+    dailyActivityGrouped: {
+      day: string;
+      name: string;
+      color: string;
+      hours: number;
+      client_name?: string | null;
+    }[];
     projectDistribution: {
       name: string;
       hours: number;
       color: string;
+      clientName?: string | null;
     }[];
   };
-  projects?: { id: string; name: string }[];
+  projects?: { id: string; name: string; clientId?: string | null }[];
   clients?: { id: string; name: string }[];
 }
 
@@ -144,6 +152,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     const urlClient = searchParams.get('client');
     const urlFrom = searchParams.get('from');
     const urlTo = searchParams.get('to');
+    const urlPreset = searchParams.get('preset') as DatePreset | null;
 
     if (urlTab && ['summary', 'detailed', 'weekly', 'shared'].includes(urlTab)) {
       setActiveTab(urlTab);
@@ -156,12 +165,18 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     setSelectedProject(urlProject || null);
     setSelectedClient(urlClient || null);
 
+    if (urlPreset && ['today','yesterday','thisWeek','lastWeek','thisMonth','lastMonth','last30Days','thisYear','custom'].includes(urlPreset)) {
+      setDatePreset(urlPreset);
+    }
+
     if (urlFrom && urlTo) {
       const from = new Date(urlFrom);
       const to = new Date(urlTo);
       if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
         setCustomDateRange({ from, to });
-        setDatePreset('custom');
+        if (!urlPreset) {
+          setDatePreset('custom');
+        }
       }
     }
   }, [searchParams]);
@@ -172,38 +187,38 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     switch (preset) {
       case 'today':
         setCustomDateRange({ from: now, to: now });
-        updateParams({ from: format(now, 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
+        updateParams({ from: format(now, 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'today' });
         break;
       case 'yesterday':
         const yesterday = subDays(now, 1);
         setCustomDateRange({ from: yesterday, to: yesterday });
-        updateParams({ from: format(yesterday, 'yyyy-MM-dd'), to: format(yesterday, 'yyyy-MM-dd') });
+        updateParams({ from: format(yesterday, 'yyyy-MM-dd'), to: format(yesterday, 'yyyy-MM-dd'), preset: 'yesterday' });
         break;
       case 'thisWeek':
         setCustomDateRange({ from: startOfWeek(now), to: endOfWeek(now) });
-        updateParams({ from: format(startOfWeek(now), 'yyyy-MM-dd'), to: format(endOfWeek(now), 'yyyy-MM-dd') });
+        updateParams({ from: format(startOfWeek(now), 'yyyy-MM-dd'), to: format(endOfWeek(now), 'yyyy-MM-dd'), preset: 'thisWeek' });
         break;
       case 'lastWeek':
         const lastWeekStart = startOfWeek(subDays(now, 7));
         setCustomDateRange({ from: lastWeekStart, to: endOfWeek(lastWeekStart) });
-        updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart), 'yyyy-MM-dd') });
+        updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart), 'yyyy-MM-dd'), preset: 'lastWeek' });
         break;
       case 'thisMonth':
         setCustomDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
-        updateParams({ from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd') });
+        updateParams({ from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd'), preset: 'thisMonth' });
         break;
       case 'lastMonth':
         const lastMonth = subDays(startOfMonth(now), 1);
         setCustomDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
-        updateParams({ from: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), to: format(endOfMonth(lastMonth), 'yyyy-MM-dd') });
+        updateParams({ from: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), to: format(endOfMonth(lastMonth), 'yyyy-MM-dd'), preset: 'lastMonth' });
         break;
       case 'last30Days':
         setCustomDateRange({ from: subDays(now, 30), to: now });
-        updateParams({ from: format(subDays(now, 30), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
+        updateParams({ from: format(subDays(now, 30), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'last30Days' });
         break;
       case 'thisYear':
         setCustomDateRange({ from: startOfYear(now), to: now });
-        updateParams({ from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd') });
+        updateParams({ from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'thisYear' });
         break;
     }
   };
@@ -295,7 +310,8 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                       setDatePreset('custom');
                       updateParams({
                         from: format(range.from, 'yyyy-MM-dd'),
-                        to: format(range.to, 'yyyy-MM-dd')
+                        to: format(range.to, 'yyyy-MM-dd'),
+                        preset: 'custom'
                       });
                     }
                   }}
@@ -313,7 +329,17 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           <span className="text-xs font-bold text-slate-400 uppercase mr-2 tracking-wide">Filter</span>
 
           {/* Client Filter */}
-          <Select value={selectedClient || 'all'} onValueChange={(v) => setSelectedClient(v === 'all' ? null : v)}>
+          <Select
+            value={selectedClient || 'all'}
+            onValueChange={(v) => {
+              const next = v === 'all' ? null : v;
+              setSelectedClient(next);
+              if (next && selectedProject && !projects.find(p => p.id === selectedProject && p.clientId === next)) {
+                setSelectedProject(null);
+              }
+              updateParams({ client: next, project: null });
+            }}
+          >
             <SelectTrigger className="w-[140px] h-8 text-xs">
               <SelectValue placeholder="Client" />
             </SelectTrigger>
@@ -326,13 +352,20 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           </Select>
 
           {/* Project Filter */}
-          <Select value={selectedProject || 'all'} onValueChange={(v) => setSelectedProject(v === 'all' ? null : v)}>
+          <Select
+            value={selectedProject || 'all'}
+            onValueChange={(v) => {
+              const next = v === 'all' ? null : v;
+              setSelectedProject(next);
+              updateParams({ project: next });
+            }}
+          >
             <SelectTrigger className="w-[140px] h-8 text-xs">
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Projects</SelectItem>
-              {projects.map(p => (
+              {filteredProjects.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
@@ -355,12 +388,9 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           )}
         </div>
 
-        <Button
-          className="bg-sky-400 hover:bg-sky-500 text-white text-sm font-semibold uppercase tracking-wide shadow-sm h-9"
-          onClick={() => updateParams({ project: selectedProject, client: selectedClient })}
-        >
-          Apply Filter
-        </Button>
+        <div className="text-xs text-slate-400">
+          {selectedClient || selectedProject ? 'Filters applied' : 'No filters'}
+        </div>
       </div>
 
       {/* Summary Tab Content */}
@@ -401,7 +431,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           {/* Bar Chart Area */}
           <div className="p-6 h-64 border-b border-slate-200 relative">
             <ResponsiveContainer width="100%" height="100%">
-              <ReBarChart data={data.dailyActivity}>
+              <ReBarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="date"
@@ -419,7 +449,16 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+                {chartSeries.map((series, index) => (
+                  <Bar
+                    key={series.key}
+                    dataKey={series.key}
+                    stackId={groupBy === 'day' ? undefined : 'stack'}
+                    fill={series.color}
+                    radius={index === chartSeries.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    barSize={20}
+                  />
+                ))}
               </ReBarChart>
             </ResponsiveContainer>
           </div>
@@ -454,7 +493,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                 <ReportRow
                   key={idx}
                   label={formatDistributionLabel(item.name)}
-                  sublabel={groupByLabel}
+                  sublabel={groupBy === 'project' ? item.clientName || 'No client' : groupByLabel}
                   time={`${item.hours.toFixed(2)}h`}
                   amount="0.00"
                   color={getHexColor(item.color)}
@@ -469,6 +508,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             <div className="w-full lg:w-[400px] bg-white flex items-center justify-center p-8 relative">
               {data.projectDistribution.length > 0 ? (
                 <div className="w-full">
+                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Distribution</div>
                   <div className="relative h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <RePieChart>
@@ -591,3 +631,35 @@ const ReportRow: React.FC<{
 );
 
 export default ReportsView;
+  const filteredProjects = selectedClient
+    ? projects.filter(p => p.clientId === selectedClient)
+    : projects;
+
+  const rawSeries = groupBy === 'day'
+    ? [{ key: 'total', label: 'Total', color: '#6366f1' }]
+    : Array.from(
+        data.dailyActivityGrouped.reduce((map, item) => {
+          const key = item.name;
+          if (!map.has(key)) {
+            map.set(key, { key, label: key, color: getHexColor(item.color) });
+          }
+          return map;
+        }, new Map<string, { key: string; label: string; color: string }>())
+      ).map(([, value]) => value);
+
+  const chartSeries = rawSeries.length > 0 ? rawSeries : [{ key: 'total', label: 'Total', color: '#6366f1' }];
+
+  const chartData = data.dailyActivity.map(day => {
+    const base: Record<string, number | string> = { date: day.date, total: day.hours };
+    if (groupBy !== 'day') {
+      chartSeries.forEach(series => {
+        base[series.key] = 0;
+      });
+      data.dailyActivityGrouped
+        .filter(entry => entry.day === day.date)
+        .forEach(entry => {
+          base[entry.name] = entry.hours;
+        });
+    }
+    return base;
+  });

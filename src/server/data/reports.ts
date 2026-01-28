@@ -102,39 +102,88 @@ export async function getDailyActivity(startDate: Date, endDate: Date, filters?:
   return result;
 }
 
+export async function getDailyActivityGrouped(startDate: Date, endDate: Date, filters?: ReportFilters) {
+  const filterProject = filters?.projectId;
+  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+  const groupBy = filters?.groupBy === 'client' ? 'client' : 'project';
+
+  if (groupBy === 'client') {
+    return prisma.$queryRaw<{ day: string; name: string; color: string; hours: number }[]>(
+      Prisma.sql`
+        SELECT
+          TO_CHAR(t."startTime", 'YYYY-MM-DD') as day,
+          c.name as name,
+          c.color as color,
+          COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+        FROM "TimeEntry" t
+        LEFT JOIN "Project" p ON p.id = t."projectId"
+        LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
+        WHERE t."startTime" >= ${startDate}
+          AND t."startTime" <= ${endDate}
+          AND t."endTime" IS NOT NULL
+          ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
+          ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
+          AND c.id IS NOT NULL
+        GROUP BY day, c.id, c.name, c.color
+        ORDER BY day
+      `
+    );
+  }
+
+  return prisma.$queryRaw<{ day: string; name: string; color: string; hours: number; client_name: string | null }[]>(
+    Prisma.sql`
+      SELECT
+        TO_CHAR(t."startTime", 'YYYY-MM-DD') as day,
+        p.name as name,
+        p.color as color,
+        c.name as client_name,
+        COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+      FROM "TimeEntry" t
+      LEFT JOIN "Project" p ON p.id = t."projectId"
+      LEFT JOIN "Client" c ON c.id = p."clientId"
+      WHERE t."startTime" >= ${startDate}
+        AND t."startTime" <= ${endDate}
+        AND t."endTime" IS NOT NULL
+        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
+        ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
+        AND p.id IS NOT NULL
+      GROUP BY day, p.id, p.name, p.color, c.name
+      ORDER BY day
+    `
+  );
+}
+
 export async function getProjectDistribution(startDate: Date, endDate: Date, filters?: ReportFilters) {
   if (filters?.groupBy === 'client') {
-    const where = await buildEntryWhere(startDate, endDate, { ...filters, projectId: undefined });
-    const clientHours = await prisma.timeEntry.groupBy({
-      by: ['clientId'],
-      where: {
-        ...where,
-        clientId: { not: null },
-      },
-      _sum: { duration: true },
-    });
+    const filterProject = filters?.projectId;
+    const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
 
-    const clientIds = clientHours.map(c => c.clientId).filter(Boolean) as string[];
-    if (clientIds.length === 0) return [];
+    const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number }[]>(
+      Prisma.sql`
+        SELECT
+          c.id as client_id,
+          c.name as name,
+          c.color as color,
+          COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+        FROM "TimeEntry" t
+        LEFT JOIN "Project" p ON p.id = t."projectId"
+        LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
+        WHERE t."startTime" >= ${startDate}
+          AND t."startTime" <= ${endDate}
+          AND t."endTime" IS NOT NULL
+          ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
+          ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
+          AND c.id IS NOT NULL
+        GROUP BY c.id, c.name, c.color
+        ORDER BY hours DESC
+      `
+    );
 
-    const clientDetails = await prisma.client.findMany({
-      where: { id: { in: clientIds } },
-      select: { id: true, name: true, color: true },
-    });
-
-    const clientMap = new Map(clientDetails.map(c => [c.id, c]));
-
-    return clientHours
-      .map((c) => {
-        const client = c.clientId ? clientMap.get(c.clientId) : null;
-        if (!client) return null;
-        return {
-          name: client.name,
-          hours: parseFloat(((c._sum.duration || 0) / 3600).toFixed(2)),
-          color: client.color,
-        };
-      })
-      .filter((c): c is NonNullable<typeof c> => c !== null);
+    return clientHours.map(c => ({
+      name: c.name,
+      hours: parseFloat(c.hours.toFixed(2)),
+      color: c.color,
+    }));
   }
 
   if (filters?.groupBy === 'day') {
@@ -173,6 +222,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
       id: true,
       name: true,
       color: true,
+      client: { select: { name: true } },
     },
   });
 
@@ -186,6 +236,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
         name: project.name,
         hours: parseFloat(((p._sum.duration || 0) / 3600).toFixed(2)),
         color: project.color,
+        clientName: project.client?.name ?? null,
       };
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);
