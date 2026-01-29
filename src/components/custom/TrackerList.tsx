@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { logManualTimeEntry } from '@/server/actions/time-entries';
+import { getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
 
 interface TrackerListProps {
   entries: TimeEntry[];
@@ -37,13 +38,18 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
   const groupedEntries = useMemo(() => {
     const groups: { [key: string]: TimeEntry[] } = {};
     entries.forEach(entry => {
-      if (!groups[entry.date]) {
-        groups[entry.date] = [];
+      const dateKey = getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date);
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
       }
-      groups[entry.date].push(entry);
+      groups[dateKey].push(entry);
     });
     // Sort keys descending (newest first)
-    return Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(date => ({
+    return Object.keys(groups).sort((a, b) => {
+      const dateA = parseDateKeyToLocalDate(a)?.getTime() ?? 0;
+      const dateB = parseDateKeyToLocalDate(b)?.getTime() ?? 0;
+      return dateB - dateA;
+    }).map(date => ({
       date,
       entries: groups[date]
     }));
@@ -51,7 +57,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
 
   // Format date header (e.g., "Today", "Yesterday", "Sat, Jan 17")
   const formatDateHeader = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseDateKeyToLocalDate(dateStr) ?? new Date(dateStr);
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);

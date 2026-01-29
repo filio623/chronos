@@ -29,6 +29,7 @@ import {
   SelectSeparator,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { formatLocalTime, getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
 
 interface TimesheetViewProps {
   projects: Project[];
@@ -150,7 +151,9 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
     entries.forEach(entry => {
       if (!entry.projectId) return;
-      const entryDate = new Date(entry.date);
+      const entryDateKey = getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date);
+      const entryDate = parseDateKeyToLocalDate(entryDateKey);
+      if (!entryDate) return;
 
       // Check if entry is in current week
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
@@ -257,7 +260,9 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
   const weekEntries = useMemo(() => {
     const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
     return entries.filter(entry => {
-      const entryDate = new Date(entry.date);
+      const entryDateKey = getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date);
+      const entryDate = parseDateKeyToLocalDate(entryDateKey);
+      if (!entryDate) return false;
       return entryDate >= currentWeekStart && entryDate <= weekEnd;
     });
   }, [entries, currentWeekStart]);
@@ -422,11 +427,11 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                       {entry.description || 'Manual entry'}
                     </span>
                     <span className="text-xs text-slate-500">
-                      {format(new Date(entry.date), 'EEE, MMM d')} · {project?.name || client?.name || 'No project'}
+                      {format(parseDateKeyToLocalDate(getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date)) ?? new Date(entry.date), 'EEE, MMM d')} · {project?.name || client?.name || 'No project'}
                     </span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span>{entry.startTime} – {entry.endTime}</span>
+                    <span>{formatLocalTime(entry.startTime)} – {formatLocalTime(entry.endTime)}</span>
                     <span className="font-mono text-slate-700">{entry.duration}</span>
                   </div>
                 </div>

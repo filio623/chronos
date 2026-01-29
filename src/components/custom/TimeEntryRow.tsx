@@ -1,6 +1,7 @@
 import React, { useTransition } from 'react';
 import { TimeEntry, Project } from '@/types';
 import { Play, DollarSign, Tag, MoreVertical, Calendar, Trash2, Loader2 } from 'lucide-react';
+import { formatLocalTime } from '@/lib/time';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,9 +75,9 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, onRestart }
 
         {/* Time Interval */}
         <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-500 w-32 justify-end">
-            <span>{entry.startTime}</span>
+            <span>{formatLocalTime(entry.startTime)}</span>
             <span>-</span>
-            <span>{entry.endTime}</span>
+            <span>{formatLocalTime(entry.endTime)}</span>
         </div>
 
         {/* Calendar Icon (Visual) */}
