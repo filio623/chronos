@@ -1,1 +1,0 @@
--- Baseline placeholder: migration already applied in Neon

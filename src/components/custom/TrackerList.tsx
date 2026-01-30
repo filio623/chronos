@@ -2,6 +2,7 @@ import React, { useMemo, useState, useTransition } from 'react';
 import { TimeEntry, Project } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
 import { Plus, Loader2 } from 'lucide-react';
+import { ExportButton } from './ExportButton';
 import { 
   Dialog, 
   DialogContent, 
@@ -118,7 +119,8 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <ExportButton />
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-slate-600 border-slate-200">
