@@ -1,4 +1,4 @@
-# RetainerTracker: Technical Architecture Guide
+# Chronos: Technical Architecture Guide
 
 **Version:** 3.0.0 | **Last Updated:** January 20, 2026
 
@@ -21,9 +21,9 @@
 
 # 1. Executive Summary
 
-## What is RetainerTracker?
+## What is Chronos?
 
-RetainerTracker is a **budget-first time tracking** application for agencies and freelancers on retainer billing models. Unlike traditional time trackers that focus on logging hours, RetainerTracker answers: *"How much budget do I have left before I work for free?"*
+Chronos is a **budget-first time tracking** application for agencies and freelancers on retainer billing models. Unlike traditional time trackers that focus on logging hours, Chronos answers: *"How much budget do I have left before I work for free?"*
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ flowchart LR
         C --> D["😱 Surprise: 15h on 10h retainer"]
     end
 
-    subgraph RT["RetainerTracker"]
+    subgraph RT["Chronos"]
         E[Track Time] <--> F[Budget Awareness]
         F <--> G[Real-time Status]
         G --> H["⚠️ Warning at 80%"]
@@ -79,7 +79,7 @@ flowchart TB
 
 ## Zero-API Philosophy
 
-RetainerTracker uses **no REST endpoints** for data fetching. Server Components call database functions directly:
+Chronos uses **no REST endpoints** for data fetching. Server Components call database functions directly:
 
 ```typescript
 // Server Component directly queries database
@@ -517,8 +517,8 @@ export async function createProject(formData: FormData) {
 
 ```bash
 # Clone & install
-git clone https://github.com/filio623/time_tracker_app.git
-cd time_tracker_app && npm install
+git clone https://github.com/filio623/chronos.git
+cd chronos && npm install
 
 # Configure
 cp .env.example .env
