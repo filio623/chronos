@@ -8,6 +8,12 @@ export type ReportFilters = {
   groupBy?: 'project' | 'client' | 'day';
 };
 
+function toNumber(value: number | bigint | Prisma.Decimal): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "bigint") return Number(value);
+  return Number(value);
+}
+
 async function buildEntryWhere(startDate: Date, endDate: Date, filters?: ReportFilters) {
   const where: Prisma.TimeEntryWhereInput = {
     startTime: { gte: startDate, lte: endDate },
@@ -108,7 +114,7 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
   const groupBy = filters?.groupBy === 'client' ? 'client' : 'project';
 
   if (groupBy === 'client') {
-    return prisma.$queryRaw<{ day: string; name: string; color: string; hours: number }[]>(
+    const rows = await prisma.$queryRaw<{ day: string; name: string; color: string; hours: number | Prisma.Decimal }[]>(
       Prisma.sql`
         SELECT
           TO_CHAR(t."startTime", 'YYYY-MM-DD') as day,
@@ -128,9 +134,13 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
         ORDER BY day
       `
     );
+    return rows.map((row) => ({
+      ...row,
+      hours: toNumber(row.hours),
+    }));
   }
 
-  return prisma.$queryRaw<{ day: string; name: string; color: string; hours: number; client_name: string | null }[]>(
+  const rows = await prisma.$queryRaw<{ day: string; name: string; color: string; hours: number | Prisma.Decimal; client_name: string | null }[]>(
     Prisma.sql`
       SELECT
         TO_CHAR(t."startTime", 'YYYY-MM-DD') as day,
@@ -151,6 +161,10 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
       ORDER BY day
     `
   );
+  return rows.map((row) => ({
+    ...row,
+    hours: toNumber(row.hours),
+  }));
 }
 
 export async function getProjectDistribution(startDate: Date, endDate: Date, filters?: ReportFilters) {
@@ -158,7 +172,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
     const filterProject = filters?.projectId;
     const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
 
-    const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number }[]>(
+    const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number | Prisma.Decimal }[]>(
       Prisma.sql`
         SELECT
           c.id as client_id,
@@ -181,7 +195,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
 
     return clientHours.map(c => ({
       name: c.name,
-      hours: parseFloat(c.hours.toFixed(2)),
+      hours: parseFloat(toNumber(c.hours).toFixed(2)),
       color: c.color,
     }));
   }

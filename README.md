@@ -1,3 +1,7 @@
+# Chronos
+
+Chronos is a budget-first time tracking app for agencies and freelancers on retainer billing models.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
