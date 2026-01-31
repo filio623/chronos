@@ -170,7 +170,7 @@ export default async function Home(props: {
   ]);
 
   // Fetch invoice block history for all clients
-  const invoiceBlockHistoryPromises = clientsData.map(async (client) => {
+  const invoiceBlockHistoryPromises = clientsData.map(async (client: ClientWithData) => {
     const history = await getInvoiceBlockHistory(client.id);
     return { clientId: client.id, history: history.map(mapInvoiceBlock) };
   });

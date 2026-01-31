@@ -125,6 +125,8 @@ desktop.ini
 .gemini/
 .claude/
 .codex/
+AGENTS.md
+GEMINI.md
 
 # ===============================
 # Turbo
