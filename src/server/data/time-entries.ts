@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, TimeEntry } from "@prisma/client";
 
 export type TimeEntryWithRelations = Prisma.TimeEntryGetPayload<{
   include: {

@@ -184,11 +184,11 @@ export default async function Home(props: {
   const projects = projectsData.projects.map(mapProject);
   const projectsCount = projectsData.totalCount;
   const clients = clientsData.map(mapClient);
-  const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
-  const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
-  const entries = entriesData.map((entry) => mapEntry(entry, projectMap, clientMap));
+  const projectMap = new Map<string, Project>(projects.map((p: Project) => [p.id, p]));
+  const clientMap = new Map<string, Client>(clients.map((c: Client) => [c.id, c]));
+  const entries = entriesData.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
   const activeTimer = activeTimerData ? mapEntry(activeTimerData, projectMap, clientMap) : null;
-  const tags = tagsData.map(tag => ({
+  const tags = tagsData.map((tag: { id: string; name: string; color: string | null; isSystem: boolean }) => ({
     id: tag.id,
     name: tag.name,
     color: tag.color,
