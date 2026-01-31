@@ -105,6 +105,7 @@ model TimeEntry {
   pausedSeconds Int     @default(0) // Accumulated paused time in seconds
   
   isBillable  Boolean   @default(true)
+  rateOverride Float?
   
   projectId   String?
   project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)

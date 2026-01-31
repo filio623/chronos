@@ -44,6 +44,7 @@ export interface Project {
   isArchived?: boolean;
   tags?: Tag[];
   defaultBillable?: boolean | null;
+  hourlyRate?: number | null;
 }
 
 export interface Client {
@@ -56,6 +57,7 @@ export interface Client {
   hoursTracked?: number;
   activeInvoiceBlock?: InvoiceBlock | null;
   defaultBillable?: boolean;
+  defaultRate?: number | null;
 }
 
 export interface TimeEntry {
@@ -74,4 +76,8 @@ export interface TimeEntry {
   durationSeconds: number; // Helper for calculations
   isBillable: boolean;
   tags?: Tag[];
+  rateOverride?: number | null;
+  effectiveRate?: number | null;
+  rateSource?: 'entry' | 'project' | 'client' | 'none';
+  currency?: string;
 }

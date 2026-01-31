@@ -8,6 +8,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { deleteTimeEntry, updateTimeEntry } from '@/server/actions/time-entries';
 import { assignTagsToEntry } from '@/server/actions/tags';
 import TagPicker from './TagPicker';
@@ -23,6 +30,11 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
   const [isPending, startTransition] = useTransition();
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [localBillable, setLocalBillable] = useState(entry.isBillable);
+  const [rateOpen, setRateOpen] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+  const [localRateOverride, setLocalRateOverride] = useState<number | null>(entry.rateOverride ?? null);
+  const [localEffectiveRate, setLocalEffectiveRate] = useState<number | null>(entry.effectiveRate ?? null);
+  const [localRateSource, setLocalRateSource] = useState(entry.rateSource ?? 'none');
 
   useEffect(() => {
     setSelectedTagIds(entry.tags?.map(t => t.id) || []);
@@ -31,6 +43,18 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
   useEffect(() => {
     setLocalBillable(entry.isBillable);
   }, [entry.isBillable]);
+
+  useEffect(() => {
+    setLocalRateOverride(entry.rateOverride ?? null);
+    setLocalEffectiveRate(entry.effectiveRate ?? null);
+    setLocalRateSource(entry.rateSource ?? 'none');
+  }, [entry.rateOverride, entry.effectiveRate, entry.rateSource]);
+
+  useEffect(() => {
+    if (!rateOpen) return;
+    const baseRate = entry.rateOverride ?? entry.effectiveRate ?? null;
+    setRateInput(baseRate !== null ? String(baseRate) : '');
+  }, [rateOpen, entry.rateOverride, entry.effectiveRate]);
 
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this time entry?")) {
@@ -53,6 +77,52 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
     startTransition(async () => {
       await assignTagsToEntry(entry.id, tagIds);
     });
+  };
+
+  const handleRateSave = () => {
+    const raw = rateInput.trim();
+    if (!raw) return;
+    const value = parseFloat(raw);
+    if (Number.isNaN(value)) return;
+    setLocalRateOverride(value);
+    setLocalEffectiveRate(value);
+    setLocalRateSource('entry');
+    startTransition(async () => {
+      await updateTimeEntry(entry.id, { rateOverride: value });
+    });
+    setRateOpen(false);
+  };
+
+  const handleRateClear = () => {
+    setLocalRateOverride(null);
+    setLocalEffectiveRate(null);
+    setLocalRateSource('none');
+    startTransition(async () => {
+      await updateTimeEntry(entry.id, { rateOverride: null });
+    });
+    setRateOpen(false);
+  };
+
+  const renderRateLabel = () => {
+    if (localEffectiveRate === null || localEffectiveRate === undefined) return null;
+    const label = localRateSource === 'entry'
+      ? 'entry'
+      : localRateSource === 'project'
+        ? 'project'
+        : localRateSource === 'client'
+          ? 'client'
+          : null;
+    if (!label) return null;
+    return (
+      <span className="text-[10px] uppercase text-slate-400 ml-1">
+        {label}
+      </span>
+    );
+  };
+
+  const renderOverrideDot = () => {
+    if (localRateOverride === null || localRateOverride === undefined) return null;
+    return <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-indigo-500" />;
   };
 
   return (
@@ -112,6 +182,54 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
         >
           <DollarSign size={16} />
         </button>
+
+        {/* Rate */}
+        <div className="hidden lg:flex items-center text-xs text-slate-500 w-24 justify-end">
+          <Popover open={rateOpen} onOpenChange={setRateOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={`px-1.5 py-0.5 rounded border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors ${localRateSource === 'entry' ? 'text-slate-700' : 'text-slate-400'}`}
+                title={localRateOverride !== null ? "Entry rate override" : "Inherited rate"}
+                disabled={isPending}
+              >
+                {localEffectiveRate !== null && localEffectiveRate !== undefined ? (
+                  <span className="flex items-center">
+                    {`$${localEffectiveRate}/hr`}
+                    {renderOverrideDot()}
+                    {renderRateLabel()}
+                  </span>
+                ) : (
+                  'Rate'
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-3">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-slate-600">Entry Rate Override</div>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={rateInput}
+                  onChange={(e) => setRateInput(e.target.value)}
+                  placeholder="e.g. 50"
+                  disabled={isPending}
+                />
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={handleRateSave} disabled={isPending || !rateInput.trim()}>
+                    Save
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={handleRateClear} disabled={isPending || localRateOverride === null}>
+                    Clear
+                  </Button>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {localRateOverride !== null ? 'Override set for this entry only' : 'Inherits from project or client'}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
 
         {/* Time Interval */}
         <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-500 w-32 justify-end">

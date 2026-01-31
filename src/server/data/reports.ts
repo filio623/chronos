@@ -43,6 +43,8 @@ async function buildEntryWhere(startDate: Date, endDate: Date, filters?: ReportF
 
 export async function getSummaryMetrics(startDate: Date, endDate: Date, filters?: ReportFilters) {
   const where = await buildEntryWhere(startDate, endDate, filters);
+  const filterProject = filters?.projectId;
+  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
   // Use Prisma aggregate instead of fetching all records
   const [totalAgg, billableAgg] = await Promise.all([
     prisma.timeEntry.aggregate({
@@ -58,10 +60,28 @@ export async function getSummaryMetrics(startDate: Date, endDate: Date, filters?
     }),
   ]);
 
+  const amountRows = await prisma.$queryRaw<{ total_amount: number | Prisma.Decimal }[]>(
+    Prisma.sql`
+      SELECT
+        COALESCE(SUM((t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)), 0) AS total_amount
+      FROM "TimeEntry" t
+      LEFT JOIN "Project" p ON p.id = t."projectId"
+      LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
+      WHERE t."startTime" >= ${startDate}
+        AND t."startTime" <= ${endDate}
+        AND t."endTime" IS NOT NULL
+        AND t."isBillable" = true
+        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
+        ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
+    `
+  );
+
+  const totalAmount = toNumber(amountRows[0]?.total_amount ?? 0);
+
   return {
     totalSeconds: totalAgg._sum.duration || 0,
     billableSeconds: billableAgg._sum.duration || 0,
-    totalAmount: 0, // Future: Multiply by project rate
+    totalAmount,
   };
 }
 

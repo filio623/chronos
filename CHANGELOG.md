@@ -6,14 +6,20 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+- Pending changes will be added here.
+
+## [0.1.1] - 2026-01-31
+
 ### Added
 
 - Client and project default billable settings with hierarchy overrides.
 - Time entry tag assignment from the tracker list and recent activity.
+- Hierarchical billable rates with optional entry overrides.
 
 ### Changed
 
 - Billable defaults now apply when starting timers or logging manual entries.
+- Report totals now calculate billable amounts using effective rates.
 
 ## [0.1.0] - 2026-01-30
 

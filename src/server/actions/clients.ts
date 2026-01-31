@@ -17,6 +17,7 @@ const createClientSchema = z.object({
   name: z.string().min(1, "Client name is required").max(100, "Client name must be 100 characters or less"),
   currency: z.string().length(3, "Currency must be a 3-letter code").default("USD"),
   defaultBillable: z.boolean().optional(),
+  defaultRate: z.number().nullable().optional(),
 });
 
 const updateClientSchema = z.object({
@@ -26,6 +27,7 @@ const updateClientSchema = z.object({
   color: z.string().optional(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").optional(),
   defaultBillable: z.boolean().optional(),
+  defaultRate: z.number().nullable().optional(),
 });
 
 const idSchema = z.string().uuid("Invalid ID format");
@@ -52,10 +54,14 @@ async function getNextClientColor(): Promise<string> {
 }
 
 export async function createClient(formData: FormData) {
+  const rawDefaultRate = formData.get("defaultRate") as string | null;
   const rawData = {
     name: formData.get("name") as string,
     currency: (formData.get("currency") as string) || "USD",
     defaultBillable: formData.get("defaultBillable") === "on" ? true : undefined,
+    defaultRate: rawDefaultRate
+      ? parseFloat(rawDefaultRate)
+      : null,
   };
 
   const parsed = createClientSchema.safeParse(rawData);
@@ -63,7 +69,7 @@ export async function createClient(formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, currency, defaultBillable } = parsed.data;
+  const { name, currency, defaultBillable, defaultRate } = parsed.data;
   const workspaceId = await getDefaultWorkspaceId();
   const color = await getNextClientColor();
 
@@ -75,6 +81,7 @@ export async function createClient(formData: FormData) {
         color,
         workspaceId,
         ...(defaultBillable !== undefined && { defaultBillable }),
+        ...(defaultRate !== undefined && { defaultRate }),
       },
     });
 
@@ -94,6 +101,7 @@ export async function updateClient(id: string, formData: FormData) {
   }
 
   const rawBudgetLimit = formData.get("budgetLimit");
+  const rawDefaultRate = formData.get("defaultRate") as string | null;
   const rawData = {
     name: formData.get("name") as string || undefined,
     address: formData.get("address") as string || undefined,
@@ -101,6 +109,11 @@ export async function updateClient(id: string, formData: FormData) {
     color: formData.get("color") as string || undefined,
     budgetLimit: rawBudgetLimit ? parseFloat(rawBudgetLimit as string) : undefined,
     defaultBillable: formData.get("defaultBillable") === "on" ? true : formData.get("defaultBillable") === "off" ? false : undefined,
+    defaultRate: rawDefaultRate === ''
+      ? null
+      : rawDefaultRate
+        ? parseFloat(rawDefaultRate)
+        : undefined,
   };
 
   const parsed = updateClientSchema.safeParse(rawData);

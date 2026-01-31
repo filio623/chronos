@@ -64,6 +64,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
   const [entryMinutes, setEntryMinutes] = useState('0');
   const [entryIsBillable, setEntryIsBillable] = useState(true);
   const [billableTouched, setBillableTouched] = useState(false);
+  const [entryRateOverride, setEntryRateOverride] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectClientId, setNewProjectClientId] = useState<string>('none');
   const [newClientName, setNewClientName] = useState('');
@@ -335,6 +336,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
         startTime,
         endTime,
         isBillable: entryIsBillable,
+        rateOverride: entryRateOverride.trim() ? parseFloat(entryRateOverride) : null,
       });
 
       if (!result.success) {
@@ -351,6 +353,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
       setEntryHours('1');
       setEntryMinutes('0');
       setEntryIsBillable(true);
+      setEntryRateOverride('');
       setBillableTouched(false);
       router.refresh();
     });
@@ -579,6 +582,18 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                 placeholder="What did you work on?"
                 maxLength={500}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rate override (hourly)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="e.g. 50"
+                value={entryRateOverride}
+                onChange={(e) => setEntryRateOverride(e.target.value)}
+              />
+              <p className="text-[10px] text-slate-500 italic">Optional entry-only rate</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

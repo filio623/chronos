@@ -19,6 +19,7 @@ const logManualEntrySchema = z.object({
   startTime: z.date(),
   endTime: z.date(),
   isBillable: z.boolean().optional(),
+  rateOverride: z.number().nullable().optional(),
 });
 
 const updateTimeEntrySchema = z.object({
@@ -27,6 +28,7 @@ const updateTimeEntrySchema = z.object({
   startTime: z.date().optional(),
   endTime: z.date().nullable().optional(),
   isBillable: z.boolean().optional(),
+  rateOverride: z.number().nullable().optional(),
 });
 
 async function resolveDefaultBillable(projectId: string | null, clientId?: string | null) {
@@ -203,13 +205,14 @@ export async function logManualTimeEntry(data: {
   startTime: Date;
   endTime: Date;
   isBillable: boolean;
+  rateOverride?: number | null;
 }) {
   const parsed = logManualEntrySchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { projectId, clientId, description, startTime, endTime } = parsed.data;
+  const { projectId, clientId, description, startTime, endTime, rateOverride } = parsed.data;
   const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 
   if (durationSeconds < 0) {
@@ -235,6 +238,7 @@ export async function logManualTimeEntry(data: {
         endTime,
         duration: durationSeconds,
         isBillable: resolvedBillable,
+        ...(rateOverride !== undefined && { rateOverride }),
       }
     });
 
@@ -270,6 +274,7 @@ export async function updateTimeEntry(id: string, data: {
   startTime?: Date;
   endTime?: Date | null;
   isBillable?: boolean;
+  rateOverride?: number | null;
 }) {
   const idParsed = idSchema.safeParse(id);
   if (!idParsed.success) {
@@ -290,7 +295,7 @@ export async function updateTimeEntry(id: string, data: {
       return { success: false, error: "Entry not found" };
     }
 
-    const { description, projectId, startTime, endTime, isBillable } = dataParsed.data;
+    const { description, projectId, startTime, endTime, isBillable, rateOverride } = dataParsed.data;
 
     // Recalculate duration if times changed
     const newStartTime = startTime ?? existingEntry.startTime;
@@ -321,6 +326,7 @@ export async function updateTimeEntry(id: string, data: {
         ...(startTime !== undefined && { startTime }),
         ...(endTime !== undefined && { endTime }),
         ...(isBillable !== undefined && { isBillable }),
+        ...(rateOverride !== undefined && { rateOverride }),
         ...(newEndTime && { duration }),
         ...(endTime !== undefined && endTime !== null && { pausedAt: null }),
       }

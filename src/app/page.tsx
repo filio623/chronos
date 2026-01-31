@@ -23,6 +23,7 @@ const mapProject = (p: ProjectWithHours): Project => ({
   isFavorite: p.isFavorite,
   isArchived: p.isArchived,
   defaultBillable: p.defaultBillable,
+  hourlyRate: p.hourlyRate,
 });
 
 const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }): InvoiceBlock => ({
@@ -48,9 +49,14 @@ const mapClient = (c: ClientWithData): Client => ({
   hoursTracked: c.hoursTracked,
   activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock) : null,
   defaultBillable: c.defaultBillable,
+  defaultRate: c.defaultRate,
 });
 
-const mapEntry = (e: PrismaTimeEntry | TimeEntryWithRelations): TimeEntry => {
+const mapEntry = (
+  e: PrismaTimeEntry | TimeEntryWithRelations,
+  projectMap: Map<string, Project>,
+  clientMap: Map<string, Client>
+): TimeEntry => {
   const pausedSeconds = e.pausedSeconds ?? 0;
   const pausedAt = e.pausedAt ?? null;
   const isPaused = !e.endTime && !!pausedAt;
@@ -64,6 +70,24 @@ const mapEntry = (e: PrismaTimeEntry | TimeEntryWithRelations): TimeEntry => {
   const hours = Math.floor(durationSeconds / 3600);
   const minutes = Math.floor((durationSeconds % 3600) / 60);
   const seconds = durationSeconds % 60;
+  const entryRateOverride = (e as PrismaTimeEntry & { rateOverride?: number | null }).rateOverride ?? null;
+  const project = projectMap.get(e.projectId || '');
+  const clientId = e.clientId ?? project?.clientId ?? null;
+  const client = clientId ? clientMap.get(clientId) : null;
+
+  let effectiveRate: number | null = null;
+  let rateSource: 'entry' | 'project' | 'client' | 'none' = 'none';
+
+  if (entryRateOverride !== null && entryRateOverride !== undefined) {
+    effectiveRate = entryRateOverride;
+    rateSource = 'entry';
+  } else if (project?.hourlyRate !== null && project?.hourlyRate !== undefined) {
+    effectiveRate = project.hourlyRate;
+    rateSource = 'project';
+  } else if (client?.defaultRate !== null && client?.defaultRate !== undefined) {
+    effectiveRate = client.defaultRate;
+    rateSource = 'client';
+  }
 
   return {
     id: e.id,
@@ -80,6 +104,10 @@ const mapEntry = (e: PrismaTimeEntry | TimeEntryWithRelations): TimeEntry => {
     duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
     durationSeconds: durationSeconds,
     isBillable: e.isBillable,
+    rateOverride: entryRateOverride,
+    effectiveRate,
+    rateSource,
+    currency: client?.currency ?? 'USD',
     tags: (e as TimeEntryWithRelations).tags?.map(t => ({
       id: t.id,
       name: t.name,
@@ -156,8 +184,10 @@ export default async function Home(props: {
   const projects = projectsData.projects.map(mapProject);
   const projectsCount = projectsData.totalCount;
   const clients = clientsData.map(mapClient);
-  const entries = entriesData.map(mapEntry);
-  const activeTimer = activeTimerData ? mapEntry(activeTimerData) : null;
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+  const clientMap = new Map(clients.map(c => [c.id, c]));
+  const entries = entriesData.map((entry) => mapEntry(entry, projectMap, clientMap));
+  const activeTimer = activeTimerData ? mapEntry(activeTimerData, projectMap, clientMap) : null;
   const tags = tagsData.map(tag => ({
     id: tag.id,
     name: tag.name,

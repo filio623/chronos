@@ -73,7 +73,7 @@ interface ReportsViewProps {
     }[];
   };
   projects?: { id: string; name: string; clientId?: string | null }[];
-  clients?: { id: string; name: string }[];
+  clients?: { id: string; name: string; currency?: string }[];
 }
 
 type ProjectOption = { id: string; name: string; clientId?: string | null };
@@ -112,6 +112,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
   const [groupBy, setGroupBy] = useState<'project' | 'client' | 'day'>('project');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const selectedClientData = selectedClient ? clients.find(c => c.id === selectedClient) || null : null;
 
   const formatDuration = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -448,7 +449,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               <div>
                 <div className="text-xs text-slate-500 font-medium mb-1">Amount</div>
                 <div className="text-2xl font-mono font-bold text-slate-800 flex items-baseline">
-                  <span className="text-sm text-slate-500 mr-1">USD</span>
+                  <span className="text-sm text-slate-500 mr-1">{selectedClientData?.currency || 'USD'}</span>
                   {data.summary.totalAmount.toFixed(2)}
                 </div>
               </div>

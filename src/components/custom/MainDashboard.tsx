@@ -381,7 +381,7 @@ export default function MainDashboard({
               <ReportsView
                 data={reportData}
                 projects={initialProjects.map(p => ({ id: p.id, name: p.name, clientId: p.clientId }))}
-                clients={initialClients.map(c => ({ id: c.id, name: c.name }))}
+                clients={initialClients.map(c => ({ id: c.id, name: c.name, currency: c.currency }))}
               />
             )}
 

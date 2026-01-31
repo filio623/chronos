@@ -188,6 +188,19 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="hourlyRate">Hourly Rate</Label>
+                <Input
+                  id="hourlyRate"
+                  name="hourlyRate"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 50"
+                  disabled={isPending}
+                />
+                <p className="text-[10px] text-slate-500 italic">Optional project override</p>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Default Billable</Label>
                 <Select value={newProjectBillable} onValueChange={(value) => setNewProjectBillable(value as typeof newProjectBillable)}>
                   <SelectTrigger>
@@ -307,7 +320,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
                   currentOrder={currentOrder}
                   onSort={handleSort}
                 />
-                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Rate</th>
                 <th className="px-4 py-3">Progress</th>
                 <th className="px-4 py-3">Access</th>
                 <th className="px-4 py-3 w-16 text-right"></th>
@@ -435,6 +448,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
     if (project.clientId) {
       formData.append('clientId', project.clientId);
     }
+    if (project.hourlyRate !== null && project.hourlyRate !== undefined) {
+      formData.append('hourlyRate', project.hourlyRate.toString());
+    }
 
     startTransition(async () => {
       const result = await updateProject(project.id, formData);
@@ -504,11 +520,17 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
       formData.append('clientId', project.clientId);
     }
     formData.append('budgetLimit', project.hoursTotal.toString());
+    if (project.hourlyRate !== null && project.hourlyRate !== undefined) {
+      formData.append('hourlyRate', project.hourlyRate.toString());
+    }
 
     startTransition(async () => {
       await updateProject(project.id, formData);
     });
   };
+
+  const client = clients.find(c => c.id === project.clientId);
+  const effectiveRate = project.hourlyRate ?? client?.defaultRate ?? null;
 
   return (
     <tr className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''}`}>
@@ -523,7 +545,18 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
       </td>
       <td className="px-4 py-3">{project.client}</td>
       <td className="px-4 py-3 font-mono text-slate-600">{project.hoursUsed.toFixed(2)}h</td>
-      <td className="px-4 py-3 text-slate-500">{project.amount || '-'}</td>
+      <td className="px-4 py-3 text-slate-500">
+        {effectiveRate !== null && effectiveRate !== undefined ? (
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-600">${effectiveRate}/hr</span>
+            {project.hourlyRate === null || project.hourlyRate === undefined ? (
+              <span className="text-[10px] uppercase text-slate-400">client</span>
+            ) : null}
+          </div>
+        ) : (
+          '-'
+        )}
+      </td>
       <td className="px-4 py-3">
         {isEditingBudget ? (
           <div className="flex items-center gap-1">
@@ -614,11 +647,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
                 );
               }
             }}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Edit Project</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleEditProject} className="space-y-4 py-4 text-left">
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Project</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditProject} className="space-y-4 py-4 text-left">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Project Name</Label>
                   <div className="flex items-center gap-2">
@@ -645,16 +678,30 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-budgetLimit">Budget Limit (Hours)</Label>
-                  <Input id="edit-budgetLimit" name="budgetLimit" type="number" step="0.5" defaultValue={project.hoursTotal} disabled={isPending} />
-                  <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-budgetLimit">Budget Limit (Hours)</Label>
+                <Input id="edit-budgetLimit" name="budgetLimit" type="number" step="0.5" defaultValue={project.hoursTotal} disabled={isPending} />
+                <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>Default Billable</Label>
-                  <Select value={editDefaultBillable} onValueChange={(value) => setEditDefaultBillable(value as typeof editDefaultBillable)}>
-                    <SelectTrigger>
+              <div className="space-y-2">
+                <Label htmlFor="edit-hourlyRate">Hourly Rate</Label>
+                <Input
+                  id="edit-hourlyRate"
+                  name="hourlyRate"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 50"
+                  defaultValue={project.hourlyRate ?? ''}
+                  disabled={isPending}
+                />
+                <p className="text-[10px] text-slate-500 italic">Optional project override</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Default Billable</Label>
+                <Select value={editDefaultBillable} onValueChange={(value) => setEditDefaultBillable(value as typeof editDefaultBillable)}>
+                  <SelectTrigger>
                       <SelectValue placeholder="Inherit from client" />
                     </SelectTrigger>
                     <SelectContent>

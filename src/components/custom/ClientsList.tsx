@@ -151,6 +151,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Hours Tracked</th>
                 <th className="px-4 py-3">Budget</th>
+                <th className="px-4 py-3">Rate</th>
                 <th className="px-4 py-3">Currency</th>
                 <th className="px-4 py-3 w-24 text-right"></th>
               </tr>
@@ -167,7 +168,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
               ))}
               {filteredClients.length === 0 && (
                 <tr>
-                    <td colSpan={6} className="p-12 text-center text-slate-400">
+                    <td colSpan={7} className="p-12 text-center text-slate-400">
                         No clients found.
                     </td>
                 </tr>
@@ -287,6 +288,11 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
             <span className="text-slate-400 text-xs italic">No limit</span>
           )}
         </td>
+        <td className="px-4 py-3 text-slate-600">
+          {client.defaultRate !== null && client.defaultRate !== undefined
+            ? `$${client.defaultRate}/hr`
+            : '-'}
+        </td>
         <td className="px-4 py-3 text-slate-600">{client.currency}</td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -319,7 +325,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
       {/* Expanded Invoice Block Section */}
       {isExpanded && (hasInvoiceBlock || invoiceBlockHistory.length > 0) && (
         <tr>
-          <td colSpan={6} className="px-4 py-4 bg-slate-50/50">
+          <td colSpan={7} className="px-4 py-4 bg-slate-50/50">
             <div className="max-w-xl space-y-3">
               {client.activeInvoiceBlock && (
                 <InvoiceBlockCard
@@ -389,6 +395,20 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
                   disabled={isPending}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-defaultRate">Default Rate</Label>
+              <Input
+                id="edit-defaultRate"
+                name="defaultRate"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 50"
+                defaultValue={client.defaultRate ?? ''}
+                disabled={isPending}
+              />
+              <p className="text-[10px] text-slate-500 italic">Hourly rate used when project or entry doesn’t override</p>
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">

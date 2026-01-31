@@ -106,6 +106,10 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
     const dateStr = formData.get('date') as string; // YYYY-MM-DD
     const startStr = formData.get('startTime') as string; // HH:MM
     const endStr = formData.get('endTime') as string; // HH:MM
+    const rateOverrideRaw = formData.get('rateOverride') as string | null;
+    const rateOverride = rateOverrideRaw && rateOverrideRaw.trim() !== ''
+      ? parseFloat(rateOverrideRaw)
+      : null;
 
     // Parse as local time and convert to proper Date objects
     // This handles the user's local timezone correctly
@@ -123,6 +127,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
         startTime: start,
         endTime: end,
         isBillable: entryIsBillable,
+        rateOverride: rateOverride,
       });
 
       if (result.success) {
@@ -130,6 +135,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
         setEntryProjectId('none');
         setEntryIsBillable(true);
         setBillableTouched(false);
+        e.currentTarget.reset();
       } else {
         alert(result.error || 'Failed to log entry');
       }
@@ -190,22 +196,35 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label htmlFor="date">Date</Label>
+                 <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required disabled={isPending} />
+               </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required disabled={isPending} />
-                </div>
-                <div className="flex items-center gap-2 pt-8">
-                  <Checkbox
-                    id="billable"
-                    name="billable"
-                    checked={entryIsBillable}
-                    onCheckedChange={(checked) => {
-                      setEntryIsBillable(Boolean(checked));
-                      setBillableTouched(true);
-                    }}
+                  <Label htmlFor="rateOverride">Rate override</Label>
+                  <Input
+                    id="rateOverride"
+                    name="rateOverride"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 50"
+                    disabled={isPending}
                   />
-                  <Label htmlFor="billable">Billable</Label>
+                  <p className="text-[10px] text-slate-500 italic">Optional entry-only hourly rate</p>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <Checkbox
+                  id="billable"
+                  name="billable"
+                  checked={entryIsBillable}
+                  onCheckedChange={(checked) => {
+                    setEntryIsBillable(Boolean(checked));
+                    setBillableTouched(true);
+                  }}
+                />
+                <Label htmlFor="billable">Billable</Label>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
