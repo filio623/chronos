@@ -174,9 +174,9 @@ export default async function Home(props: {
     const history = await getInvoiceBlockHistory(client.id);
     return { clientId: client.id, history: history.map(mapInvoiceBlock) };
   });
-  const invoiceBlockHistoryData = await Promise.all(invoiceBlockHistoryPromises);
+  const invoiceBlockHistoryData: { clientId: string; history: InvoiceBlock[] }[] = await Promise.all(invoiceBlockHistoryPromises);
   const invoiceBlockHistory: Record<string, InvoiceBlock[]> = {};
-  invoiceBlockHistoryData.forEach(({ clientId, history }) => {
+  invoiceBlockHistoryData.forEach(({ clientId, history }: { clientId: string; history: InvoiceBlock[] }) => {
     invoiceBlockHistory[clientId] = history;
   });
 
