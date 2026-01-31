@@ -16,6 +16,7 @@ const COLOR_PALETTE = [
 const createClientSchema = z.object({
   name: z.string().min(1, "Client name is required").max(100, "Client name must be 100 characters or less"),
   currency: z.string().length(3, "Currency must be a 3-letter code").default("USD"),
+  defaultBillable: z.boolean().optional(),
 });
 
 const updateClientSchema = z.object({
@@ -24,6 +25,7 @@ const updateClientSchema = z.object({
   currency: z.string().length(3, "Currency must be a 3-letter code").optional(),
   color: z.string().optional(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").optional(),
+  defaultBillable: z.boolean().optional(),
 });
 
 const idSchema = z.string().uuid("Invalid ID format");
@@ -53,6 +55,7 @@ export async function createClient(formData: FormData) {
   const rawData = {
     name: formData.get("name") as string,
     currency: (formData.get("currency") as string) || "USD",
+    defaultBillable: formData.get("defaultBillable") === "on" ? true : undefined,
   };
 
   const parsed = createClientSchema.safeParse(rawData);
@@ -60,7 +63,7 @@ export async function createClient(formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, currency } = parsed.data;
+  const { name, currency, defaultBillable } = parsed.data;
   const workspaceId = await getDefaultWorkspaceId();
   const color = await getNextClientColor();
 
@@ -71,6 +74,7 @@ export async function createClient(formData: FormData) {
         currency,
         color,
         workspaceId,
+        ...(defaultBillable !== undefined && { defaultBillable }),
       },
     });
 
@@ -96,6 +100,7 @@ export async function updateClient(id: string, formData: FormData) {
     currency: formData.get("currency") as string || undefined,
     color: formData.get("color") as string || undefined,
     budgetLimit: rawBudgetLimit ? parseFloat(rawBudgetLimit as string) : undefined,
+    defaultBillable: formData.get("defaultBillable") === "on" ? true : formData.get("defaultBillable") === "off" ? false : undefined,
   };
 
   const parsed = updateClientSchema.safeParse(rawData);

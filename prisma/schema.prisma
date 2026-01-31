@@ -51,6 +51,7 @@ model Client {
   address     String?
   currency    String   @default("USD")
   defaultRate Float?
+  defaultBillable Boolean @default(true)
   color       String   @default("text-slate-600")
   budgetLimit Float    @default(0)
 
@@ -77,6 +78,7 @@ model Project {
   budgetReset BudgetReset   @default(NEVER)
   budgetLimit Float         @default(0) // 0 means no limit
   hourlyRate  Float?
+  defaultBillable Boolean?
 
   // Relations
   clientId    String?

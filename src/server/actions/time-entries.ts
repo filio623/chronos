@@ -18,7 +18,7 @@ const logManualEntrySchema = z.object({
   description: z.string().max(500, "Description must be 500 characters or less"),
   startTime: z.date(),
   endTime: z.date(),
-  isBillable: z.boolean().default(true),
+  isBillable: z.boolean().optional(),
 });
 
 const updateTimeEntrySchema = z.object({
@@ -28,6 +28,42 @@ const updateTimeEntrySchema = z.object({
   endTime: z.date().nullable().optional(),
   isBillable: z.boolean().optional(),
 });
+
+async function resolveDefaultBillable(projectId: string | null, clientId?: string | null) {
+  if (projectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        defaultBillable: true,
+        clientId: true,
+        client: { select: { defaultBillable: true } },
+      },
+    });
+    if (project?.defaultBillable !== null && project?.defaultBillable !== undefined) {
+      return project.defaultBillable;
+    }
+    if (project?.client?.defaultBillable !== undefined) {
+      return project.client.defaultBillable;
+    }
+    if (project?.clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: project.clientId },
+        select: { defaultBillable: true },
+      });
+      if (client?.defaultBillable !== undefined) return client.defaultBillable;
+    }
+  }
+
+  if (clientId) {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { defaultBillable: true },
+    });
+    if (client?.defaultBillable !== undefined) return client.defaultBillable;
+  }
+
+  return true;
+}
 
 function calculatePausedSeconds(params: {
   pausedAt: Date | null;
@@ -100,12 +136,15 @@ export async function startTimer(projectId: string | null, description: string) 
         })
       : null;
 
+    const resolvedBillable = await resolveDefaultBillable(parsed.data.projectId, project?.clientId ?? null);
+
     await prisma.timeEntry.create({
       data: {
         projectId: parsed.data.projectId,
         clientId: project?.clientId ?? null,
         description: parsed.data.description,
         startTime: new Date(),
+        isBillable: resolvedBillable,
       }
     });
 
@@ -170,7 +209,7 @@ export async function logManualTimeEntry(data: {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { projectId, clientId, description, startTime, endTime, isBillable } = parsed.data;
+  const { projectId, clientId, description, startTime, endTime } = parsed.data;
   const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
 
   if (durationSeconds < 0) {
@@ -185,6 +224,8 @@ export async function logManualTimeEntry(data: {
         })
       : null;
 
+    const resolvedBillable = parsed.data.isBillable ?? await resolveDefaultBillable(projectId, clientId ?? null);
+
     await prisma.timeEntry.create({
       data: {
         projectId,
@@ -193,7 +234,7 @@ export async function logManualTimeEntry(data: {
         startTime,
         endTime,
         duration: durationSeconds,
-        isBillable,
+        isBillable: resolvedBillable,
       }
     });
 

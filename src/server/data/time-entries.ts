@@ -1,7 +1,14 @@
 import prisma from "@/lib/prisma";
-import { TimeEntry } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-export async function getTimeEntries(limit = 50): Promise<TimeEntry[]> {
+export type TimeEntryWithRelations = Prisma.TimeEntryGetPayload<{
+  include: {
+    tags: true;
+    project: { include: { client: true } };
+  };
+}>;
+
+export async function getTimeEntries(limit = 50): Promise<TimeEntryWithRelations[]> {
   try {
     const entries = await prisma.timeEntry.findMany({
       take: limit,
@@ -9,6 +16,7 @@ export async function getTimeEntries(limit = 50): Promise<TimeEntry[]> {
         startTime: 'desc',
       },
       include: {
+        tags: true,
         project: {
           include: {
             client: true

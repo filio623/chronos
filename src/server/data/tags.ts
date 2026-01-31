@@ -1,8 +1,30 @@
 import prisma from "@/lib/prisma";
 import { Tag } from "@prisma/client";
+import { getDefaultWorkspaceId } from "@/lib/workspaces";
+
+const SYSTEM_TAGS = [
+  { name: "Priority", color: "text-rose-600", isSystem: true },
+  { name: "In Progress", color: "text-amber-600", isSystem: true },
+  { name: "Completed", color: "text-emerald-600", isSystem: true },
+  { name: "Review", color: "text-purple-600", isSystem: true },
+];
+
+async function ensureSystemTags() {
+  const workspaceId = await getDefaultWorkspaceId();
+  const existing = await prisma.tag.findMany({
+    where: { workspaceId, isSystem: true },
+    select: { id: true },
+  });
+  if (existing.length > 0) return;
+
+  await prisma.tag.createMany({
+    data: SYSTEM_TAGS.map(tag => ({ ...tag, workspaceId })),
+  });
+}
 
 export async function getTags(): Promise<Tag[]> {
   try {
+    await ensureSystemTags();
     const tags = await prisma.tag.findMany({
       orderBy: [
         { isSystem: 'desc' },

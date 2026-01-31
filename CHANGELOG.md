@@ -6,7 +6,14 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
-- Pending changes will be added here.
+### Added
+
+- Client and project default billable settings with hierarchy overrides.
+- Time entry tag assignment from the tracker list and recent activity.
+
+### Changed
+
+- Billable defaults now apply when starting timers or logging manual entries.
 
 ## [0.1.0] - 2026-01-30
 

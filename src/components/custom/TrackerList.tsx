@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useTransition } from 'react';
-import { TimeEntry, Project } from '@/types';
+import { TimeEntry, Project, Client, Tag } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
 import { Plus, Loader2 } from 'lucide-react';
 import { 
@@ -27,12 +27,17 @@ import { getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
 interface TrackerListProps {
   entries: TimeEntry[];
   projects: Project[];
+  clients: Client[];
+  tags: Tag[];
   onRestart: (entry: TimeEntry) => void;
 }
 
-const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart }) => {
+const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, tags, onRestart }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [entryProjectId, setEntryProjectId] = useState<string>('none');
+  const [entryIsBillable, setEntryIsBillable] = useState(true);
+  const [billableTouched, setBillableTouched] = useState(false);
   
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -82,6 +87,18 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const getDefaultBillable = (projectId: string) => {
+    if (projectId === 'none') return true;
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return true;
+    if (project.defaultBillable !== null && project.defaultBillable !== undefined) {
+      return project.defaultBillable;
+    }
+    const client = clients.find(c => c.id === project.clientId);
+    if (client?.defaultBillable !== undefined) return client.defaultBillable;
+    return true;
+  };
+
   const handleManualLog = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -101,15 +118,18 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
     
     startTransition(async () => {
       const result = await logManualTimeEntry({
-        projectId: formData.get('projectId') === 'none' ? null : (formData.get('projectId') as string),
+        projectId: entryProjectId === 'none' ? null : entryProjectId,
         description: formData.get('description') as string,
         startTime: start,
         endTime: end,
-        isBillable: formData.get('billable') === 'on',
+        isBillable: entryIsBillable,
       });
 
       if (result.success) {
         setIsDialogOpen(false);
+        setEntryProjectId('none');
+        setEntryIsBillable(true);
+        setBillableTouched(false);
       } else {
         alert(result.error || 'Failed to log entry');
       }
@@ -119,7 +139,13 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (open) {
+            setBillableTouched(false);
+            setEntryIsBillable(getDefaultBillable(entryProjectId));
+          }
+        }}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-slate-600 border-slate-200">
               <Plus size={14} className="mr-2" />
@@ -138,7 +164,17 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
               
               <div className="space-y-2">
                 <Label htmlFor="projectId">Project</Label>
-                <Select name="projectId" disabled={isPending} defaultValue="none">
+                <Select
+                  name="projectId"
+                  disabled={isPending}
+                  value={entryProjectId}
+                  onValueChange={(value) => {
+                    setEntryProjectId(value);
+                    if (!billableTouched) {
+                      setEntryIsBillable(getDefaultBillable(value));
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
@@ -159,7 +195,15 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
                   <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required disabled={isPending} />
                 </div>
                 <div className="flex items-center gap-2 pt-8">
-                  <Checkbox id="billable" name="billable" defaultChecked />
+                  <Checkbox
+                    id="billable"
+                    name="billable"
+                    checked={entryIsBillable}
+                    onCheckedChange={(checked) => {
+                      setEntryIsBillable(Boolean(checked));
+                      setBillableTouched(true);
+                    }}
+                  />
                   <Label htmlFor="billable">Billable</Label>
                 </div>
               </div>
@@ -214,6 +258,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, onRestart 
                           key={entry.id} 
                           entry={entry} 
                           project={project}
+                          availableTags={tags}
                           onRestart={onRestart}
                       />
                    );

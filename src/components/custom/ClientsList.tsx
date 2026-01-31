@@ -16,6 +16,7 @@ import { createClient, updateClient, deleteClient } from '@/server/actions/clien
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -190,6 +191,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editColor, setEditColor] = useState(client.color || 'text-indigo-600');
+  const [editDefaultBillable, setEditDefaultBillable] = useState(client.defaultBillable ?? true);
 
   const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete "${client.name}"? This will also delete all associated projects and invoice blocks.`)) {
@@ -347,7 +349,10 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
         setIsEditDialogOpen(open);
-        if (open) setEditColor(client.color || 'text-indigo-600');
+        if (open) {
+          setEditColor(client.color || 'text-indigo-600');
+          setEditDefaultBillable(client.defaultBillable ?? true);
+        }
       }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -384,6 +389,19 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
                   disabled={isPending}
                 />
               </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+              <div>
+                <div className="text-sm font-medium text-slate-700">Default Billable</div>
+                <div className="text-xs text-slate-500">Applies to new projects and entries by default</div>
+              </div>
+              <Switch
+                checked={editDefaultBillable}
+                onCheckedChange={setEditDefaultBillable}
+                disabled={isPending}
+              />
+              <input type="hidden" name="defaultBillable" value={editDefaultBillable ? "on" : "off"} />
             </div>
 
             <DialogFooter className="pt-4">

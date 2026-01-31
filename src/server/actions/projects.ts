@@ -35,6 +35,7 @@ const createProjectSchema = z.object({
   clientId: z.string().uuid().optional().nullable(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").default(0),
   color: z.string().optional(),
+  defaultBillable: z.boolean().nullable().optional(),
 });
 
 const updateProjectSchema = z.object({
@@ -42,16 +43,25 @@ const updateProjectSchema = z.object({
   clientId: z.string().uuid().optional().nullable(),
   budgetLimit: z.number().min(0, "Budget limit must be 0 or greater").default(0),
   color: z.string().optional(),
+  defaultBillable: z.boolean().nullable().optional(),
 });
 
 const idSchema = z.string().uuid("Invalid ID format");
 
 export async function createProject(formData: FormData) {
+  const rawDefault = formData.get("defaultBillable") as string | null;
   const rawData = {
     name: formData.get("name") as string,
     clientId: (formData.get("clientId") as string) || null,
     budgetLimit: parseFloat(formData.get("budgetLimit") as string) || 0,
     color: (formData.get("color") as string) || undefined,
+    defaultBillable: rawDefault
+      ? rawDefault === "billable"
+        ? true
+        : rawDefault === "non-billable"
+          ? false
+          : null
+      : null,
   };
 
   const parsed = createProjectSchema.safeParse(rawData);
@@ -59,7 +69,7 @@ export async function createProject(formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, clientId, budgetLimit, color } = parsed.data;
+  const { name, clientId, budgetLimit, color, defaultBillable } = parsed.data;
   const workspaceId = await getDefaultWorkspaceId();
   const projectColor = color || await getNextProjectColor();
 
@@ -74,6 +84,7 @@ export async function createProject(formData: FormData) {
         budgetReset: BudgetReset.NEVER,
         access: ProjectAccess.PUBLIC,
         workspaceId,
+        defaultBillable,
       },
     });
 
@@ -112,11 +123,19 @@ export async function updateProject(id: string, formData: FormData) {
   }
 
   const rawClientId = formData.get("clientId") as string;
+  const rawDefault = formData.get("defaultBillable") as string | null;
   const rawData = {
     name: formData.get("name") as string,
     clientId: rawClientId === 'none' ? null : rawClientId || null,
     budgetLimit: parseFloat(formData.get("budgetLimit") as string) || 0,
     color: (formData.get("color") as string) || undefined,
+    defaultBillable: rawDefault
+      ? rawDefault === "billable"
+        ? true
+        : rawDefault === "non-billable"
+          ? false
+          : null
+      : undefined,
   };
 
   const parsed = updateProjectSchema.safeParse(rawData);
@@ -124,7 +143,7 @@ export async function updateProject(id: string, formData: FormData) {
     return { success: false, error: parsed.error.issues[0]?.message || "Invalid input" };
   }
 
-  const { name, clientId, budgetLimit, color } = parsed.data;
+  const { name, clientId, budgetLimit, color, defaultBillable } = parsed.data;
 
   try {
     await prisma.project.update({
@@ -134,6 +153,7 @@ export async function updateProject(id: string, formData: FormData) {
         clientId,
         budgetLimit,
         ...(color && { color }),
+        ...(defaultBillable !== undefined && { defaultBillable }),
       },
     });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
-import { Check, Plus, Loader2 } from 'lucide-react';
+import { Check, Plus, Loader2, Tag as TagIcon } from 'lucide-react';
 import { Tag } from '@/types';
 import { createTag } from '@/server/actions/tags';
 import { textToBg } from '@/lib/colors';
@@ -28,6 +28,7 @@ interface TagPickerProps {
   selectedTagIds: string[];
   onSelectionChange: (tagIds: string[]) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 const TagPicker: React.FC<TagPickerProps> = ({
@@ -35,6 +36,7 @@ const TagPicker: React.FC<TagPickerProps> = ({
   selectedTagIds,
   onSelectionChange,
   disabled = false,
+  compact = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -77,11 +79,22 @@ const TagPicker: React.FC<TagPickerProps> = ({
         <Button
           variant="outline"
           size="sm"
-          className="h-auto min-h-[32px] px-2 py-1 justify-start font-normal"
+          className={compact
+            ? "h-7 w-8 px-1 justify-center font-normal"
+            : "h-auto min-h-[32px] px-2 py-1 justify-start font-normal"}
           disabled={disabled}
           type="button"
         >
-          {selectedTags.length > 0 ? (
+          {compact ? (
+            <div className="flex items-center gap-1 text-slate-400">
+              <TagIcon size={14} />
+              {selectedTags.length > 0 && (
+                <span className="text-[10px] font-medium text-slate-600">
+                  {selectedTags.length}
+                </span>
+              )}
+            </div>
+          ) : selectedTags.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {selectedTags.map(tag => (
                 <TagBadge

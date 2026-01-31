@@ -43,6 +43,7 @@ export interface Project {
   isFavorite?: boolean;
   isArchived?: boolean;
   tags?: Tag[];
+  defaultBillable?: boolean | null;
 }
 
 export interface Client {
@@ -54,6 +55,7 @@ export interface Client {
   budgetLimit: number;
   hoursTracked?: number;
   activeInvoiceBlock?: InvoiceBlock | null;
+  defaultBillable?: boolean;
 }
 
 export interface TimeEntry {
@@ -71,4 +73,5 @@ export interface TimeEntry {
   duration: string;
   durationSeconds: number; // Helper for calculations
   isBillable: boolean;
+  tags?: Tag[];
 }

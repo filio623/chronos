@@ -10,7 +10,7 @@ import ClientsList from '@/components/custom/ClientsList';
 import ReportsView from '@/components/custom/ReportsView';
 import TimesheetView from '@/components/custom/TimesheetView';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
-import { Project, TimeEntry, Client, InvoiceBlock } from '@/types';
+import { Project, TimeEntry, Client, InvoiceBlock, Tag } from '@/types';
 import { tailwindToHex } from '@/lib/colors';
 import { startTimer, stopTimer, pauseTimer, resumeTimer } from '@/server/actions/time-entries';
 
@@ -19,6 +19,7 @@ interface MainDashboardProps {
   projectsCount?: number;
   initialClients: Client[];
   initialEntries: TimeEntry[];
+  initialTags: Tag[];
   activeTimer: TimeEntry | null;
   invoiceBlockHistory?: Record<string, InvoiceBlock[]>;
   reportData: {
@@ -47,6 +48,7 @@ export default function MainDashboard({
   projectsCount,
   initialClients,
   initialEntries,
+  initialTags,
   activeTimer,
   invoiceBlockHistory = {},
   reportData
@@ -327,6 +329,7 @@ export default function MainDashboard({
                                   key={entry.id} 
                                   entry={entry} 
                                   project={project}
+                                  availableTags={initialTags}
                                   onRestart={handleRestartTask}
                                 />
                               );
@@ -357,6 +360,8 @@ export default function MainDashboard({
                   <TrackerList 
                       entries={initialEntries}
                       projects={initialProjects}
+                      clients={initialClients}
+                      tags={initialTags}
                       onRestart={handleRestartTask}
                   />
               </section>

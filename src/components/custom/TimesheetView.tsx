@@ -63,6 +63,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
   const [entryHours, setEntryHours] = useState('1');
   const [entryMinutes, setEntryMinutes] = useState('0');
   const [entryIsBillable, setEntryIsBillable] = useState(true);
+  const [billableTouched, setBillableTouched] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectClientId, setNewProjectClientId] = useState<string>('none');
   const [newClientName, setNewClientName] = useState('');
@@ -74,11 +75,32 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
   const isClientLocked = !!selectedProject?.clientId;
 
+  const getDefaultBillable = (projectId: string, clientId: string) => {
+    if (projectId !== 'none') {
+      const project = projects.find(p => p.id === projectId);
+      if (project?.defaultBillable !== null && project?.defaultBillable !== undefined) {
+        return project.defaultBillable;
+      }
+      const projectClient = clients.find(c => c.id === project?.clientId);
+      if (projectClient?.defaultBillable !== undefined) return projectClient.defaultBillable;
+    }
+    if (clientId !== 'none') {
+      const client = clients.find(c => c.id === clientId);
+      if (client?.defaultBillable !== undefined) return client.defaultBillable;
+    }
+    return true;
+  };
+
   useEffect(() => {
     if (selectedProject?.clientId) {
       setEntryClientId(selectedProject.clientId);
     }
   }, [selectedProject?.clientId]);
+
+  useEffect(() => {
+    if (billableTouched) return;
+    setEntryIsBillable(getDefaultBillable(entryProjectId, entryClientId));
+  }, [billableTouched, entryProjectId, entryClientId]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,6 +351,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
       setEntryHours('1');
       setEntryMinutes('0');
       setEntryIsBillable(true);
+      setBillableTouched(false);
       router.refresh();
     });
   };
@@ -535,7 +558,10 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                 <div className="flex items-center gap-2 h-10">
                   <Switch
                     checked={entryIsBillable}
-                    onCheckedChange={setEntryIsBillable}
+                    onCheckedChange={(checked) => {
+                      setEntryIsBillable(checked);
+                      setBillableTouched(true);
+                    }}
                     id="entry-billable"
                   />
                   <span className="text-xs text-slate-500">

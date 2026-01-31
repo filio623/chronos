@@ -66,6 +66,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [newProjectColor, setNewProjectColor] = useState('text-indigo-600');
+  const [newProjectBillable, setNewProjectBillable] = useState<'inherit' | 'billable' | 'non-billable'>('inherit');
 
   // Parse sort from URL
   const currentSort = (searchParams.get('sortBy') as SortColumn) || 'updatedAt';
@@ -126,6 +127,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
       const result = await createProject(formData);
       if (result.success) {
         setIsDialogOpen(false);
+        setNewProjectBillable('inherit');
       } else {
         alert(result.error || 'Failed to create project');
       }
@@ -183,6 +185,21 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
                 <Label htmlFor="budgetLimit">Budget Limit (Hours)</Label>
                 <Input id="budgetLimit" name="budgetLimit" type="number" step="0.5" placeholder="e.g. 10" disabled={isPending} />
                 <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Default Billable</Label>
+                <Select value={newProjectBillable} onValueChange={(value) => setNewProjectBillable(value as typeof newProjectBillable)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inherit from client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inherit">Inherit from client</SelectItem>
+                    <SelectItem value="billable">Billable</SelectItem>
+                    <SelectItem value="non-billable">Non-billable</SelectItem>
+                  </SelectContent>
+                </Select>
+                <input type="hidden" name="defaultBillable" value={newProjectBillable} />
               </div>
 
               <DialogFooter className="pt-4">
@@ -397,6 +414,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(project.hoursTotal.toString());
   const [editColor, setEditColor] = useState(project.color);
+  const [editDefaultBillable, setEditDefaultBillable] = useState<'inherit' | 'billable' | 'non-billable'>(
+    project.defaultBillable === null || project.defaultBillable === undefined
+      ? 'inherit'
+      : project.defaultBillable
+        ? 'billable'
+        : 'non-billable'
+  );
 
   const handleBudgetSave = async () => {
     const newBudget = parseFloat(budgetValue) || 0;
@@ -579,7 +603,16 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
 
           <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
               setIsEditDialogOpen(open);
-              if (open) setEditColor(project.color);
+              if (open) {
+                setEditColor(project.color);
+                setEditDefaultBillable(
+                  project.defaultBillable === null || project.defaultBillable === undefined
+                    ? 'inherit'
+                    : project.defaultBillable
+                      ? 'billable'
+                      : 'non-billable'
+                );
+              }
             }}>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
@@ -616,6 +649,21 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
                   <Label htmlFor="edit-budgetLimit">Budget Limit (Hours)</Label>
                   <Input id="edit-budgetLimit" name="budgetLimit" type="number" step="0.5" defaultValue={project.hoursTotal} disabled={isPending} />
                   <p className="text-[10px] text-slate-500 italic">Leave 0 for no limit</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Default Billable</Label>
+                  <Select value={editDefaultBillable} onValueChange={(value) => setEditDefaultBillable(value as typeof editDefaultBillable)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Inherit from client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inherit">Inherit from client</SelectItem>
+                      <SelectItem value="billable">Billable</SelectItem>
+                      <SelectItem value="non-billable">Non-billable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="defaultBillable" value={editDefaultBillable} />
                 </div>
 
                 <DialogFooter className="pt-4">

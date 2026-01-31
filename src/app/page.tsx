@@ -1,12 +1,13 @@
 import MainDashboard from "@/components/custom/MainDashboard";
 import { getProjects, ProjectWithHours } from "@/server/data/projects";
 import { getClientsWithData, ClientWithData } from "@/server/data/clients";
-import { getTimeEntries, getActiveTimer } from "@/server/data/time-entries";
+import { getTimeEntries, getActiveTimer, TimeEntryWithRelations } from "@/server/data/time-entries";
+import { getTags } from "@/server/data/tags";
 import { getSummaryMetrics, getDailyActivity, getDailyActivityGrouped, getProjectDistribution } from "@/server/data/reports";
 import { getInvoiceBlockHistory } from "@/server/data/invoice-blocks";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { Project, Client, TimeEntry, InvoiceBlock, InvoiceBlockStatus } from "@/types";
-import { Client as PrismaClient, TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
+import { TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
 
 /**
  * Mappers to convert Prisma models to our UI Types
@@ -21,6 +22,7 @@ const mapProject = (p: ProjectWithHours): Project => ({
   hoursTotal: p.budgetLimit,
   isFavorite: p.isFavorite,
   isArchived: p.isArchived,
+  defaultBillable: p.defaultBillable,
 });
 
 const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }): InvoiceBlock => ({
@@ -45,9 +47,10 @@ const mapClient = (c: ClientWithData): Client => ({
   budgetLimit: c.budgetLimit,
   hoursTracked: c.hoursTracked,
   activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock) : null,
+  defaultBillable: c.defaultBillable,
 });
 
-const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
+const mapEntry = (e: PrismaTimeEntry | TimeEntryWithRelations): TimeEntry => {
   const pausedSeconds = e.pausedSeconds ?? 0;
   const pausedAt = e.pausedAt ?? null;
   const isPaused = !e.endTime && !!pausedAt;
@@ -77,6 +80,12 @@ const mapEntry = (e: PrismaTimeEntry): TimeEntry => {
     duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
     durationSeconds: durationSeconds,
     isBillable: e.isBillable,
+    tags: (e as TimeEntryWithRelations).tags?.map(t => ({
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      isSystem: t.isSystem,
+    })),
   };
 };
 
@@ -118,7 +127,8 @@ export default async function Home(props: {
     summaryMetrics,
     dailyActivity,
     dailyActivityGrouped,
-    projectDistribution
+    projectDistribution,
+    tagsData
   ] = await Promise.all([
     getProjects(projectFilters),
     getClientsWithData(),
@@ -127,7 +137,8 @@ export default async function Home(props: {
     getSummaryMetrics(reportFilters.from, reportFilters.to, reportFilters),
     getDailyActivity(reportFilters.from, reportFilters.to, reportFilters),
     getDailyActivityGrouped(reportFilters.from, reportFilters.to, reportFilters),
-    getProjectDistribution(reportFilters.from, reportFilters.to, reportFilters)
+    getProjectDistribution(reportFilters.from, reportFilters.to, reportFilters),
+    getTags()
   ]);
 
   // Fetch invoice block history for all clients
@@ -147,6 +158,12 @@ export default async function Home(props: {
   const clients = clientsData.map(mapClient);
   const entries = entriesData.map(mapEntry);
   const activeTimer = activeTimerData ? mapEntry(activeTimerData) : null;
+  const tags = tagsData.map(tag => ({
+    id: tag.id,
+    name: tag.name,
+    color: tag.color,
+    isSystem: tag.isSystem,
+  }));
 
   return (
     <MainDashboard
@@ -155,6 +172,7 @@ export default async function Home(props: {
       initialClients={clients}
       initialEntries={entries}
       activeTimer={activeTimer}
+      initialTags={tags}
       invoiceBlockHistory={invoiceBlockHistory}
       reportData={{
         summary: summaryMetrics,
