@@ -45,7 +45,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project, onClick, highlighted =
   const barWidth = Math.min(percentage, 100);
 
   const clickable = Boolean(onClick);
-  const Container = (clickable ? 'button' : 'div') as keyof JSX.IntrinsicElements;
+  const Container: React.ElementType = clickable ? 'button' : 'div';
   const baseClass =
     'bg-white rounded-lg border border-slate-200 p-4 shadow-sm transition-shadow relative overflow-hidden group text-left';
   const clickableClass = clickable

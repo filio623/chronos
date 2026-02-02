@@ -18,6 +18,9 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 - Sidebar retainer dots now reuse the project palette color so the left-hand swatches match the project list.
 - Budget overview cards now show the matching project color dot so the dashboard uses the same palette as the selectors.
 
+### Fixed
+- Resolved a TypeScript build error by avoiding `JSX.IntrinsicElements` in the budget card container typing.
+
 ## [0.1.1] - 2026-01-31
 
 ### Added
