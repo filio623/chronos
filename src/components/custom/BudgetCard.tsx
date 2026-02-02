@@ -1,12 +1,15 @@
 import React from 'react';
 import { Project } from '@/types';
 import { AlertCircle } from 'lucide-react';
+import { tailwindToHex } from '@/lib/colors';
 
 interface BudgetCardProps {
   project: Project;
+  onClick?: () => void;
+  highlighted?: boolean;
 }
 
-const BudgetCard: React.FC<BudgetCardProps> = ({ project }) => {
+const BudgetCard: React.FC<BudgetCardProps> = ({ project, onClick, highlighted = false }) => {
   // Guard against division by zero
   const hasBudget = project.hoursTotal > 0;
   const percentage = hasBudget ? (project.hoursUsed / project.hoursTotal) * 100 : 0;
@@ -41,12 +44,33 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project }) => {
   // Calculate clamp for bar width so it doesn't break layout
   const barWidth = Math.min(percentage, 100);
 
+  const clickable = Boolean(onClick);
+  const Container = (clickable ? 'button' : 'div') as keyof JSX.IntrinsicElements;
+  const baseClass =
+    'bg-white rounded-lg border border-slate-200 p-4 shadow-sm transition-shadow relative overflow-hidden group text-left';
+  const clickableClass = clickable
+    ? 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60'
+    : '';
+  const highlightedClass = highlighted ? 'ring-2 ring-indigo-400/60 bg-indigo-50/50 shadow-lg' : '';
+
+  const containerProps = clickable
+    ? ({ type: 'button', onClick } as const)
+    : undefined;
+
+  const colorDotStyle = { backgroundColor: tailwindToHex(project.color || 'text-slate-600') };
+
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+    <Container
+      {...(containerProps || {})}
+      className={`${baseClass} ${clickableClass} ${highlightedClass}`}
+    >
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 leading-tight">{project.name}</h3>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full" style={colorDotStyle}></span>
+            <h3 className="text-sm font-semibold text-slate-900 leading-tight">{project.name}</h3>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">{project.client}</p>
         </div>
         {badge}
@@ -80,7 +104,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project }) => {
         )}
       </div>
       
-    </div>
+    </Container>
   );
 };
 

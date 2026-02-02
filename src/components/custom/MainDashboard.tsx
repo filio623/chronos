@@ -54,6 +54,8 @@ export default function MainDashboard({
   reportData
 }: MainDashboardProps) {
   const [currentView, setCurrentView] = useState('dashboard');
+  const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
+  const [highlightedClientId, setHighlightedClientId] = useState<string | null>(null);
   // Initialize elapsed seconds from activeTimer immediately to avoid race condition
   const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer, !!activeTimer?.isPaused));
   const [activeProject, setActiveProject] = useState<Project | null>(null);
@@ -193,6 +195,18 @@ export default function MainDashboard({
     });
   };
 
+  const handleNavigateToProject = (projectId: string) => {
+    setHighlightedProjectId(projectId);
+    setHighlightedClientId(null);
+    setCurrentView('projects');
+  };
+
+  const handleNavigateToClient = (clientId: string) => {
+    setHighlightedClientId(clientId);
+    setHighlightedProjectId(null);
+    setCurrentView('clients');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
       
@@ -200,6 +214,8 @@ export default function MainDashboard({
         currentView={currentView} 
         onViewChange={setCurrentView} 
         projects={initialProjects}
+        onRetainerClick={handleNavigateToProject}
+        highlightedProjectId={highlightedProjectId}
       />
 
       <main className="flex-1 ml-[250px] min-w-0 flex flex-col h-screen">
@@ -231,7 +247,12 @@ export default function MainDashboard({
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                           {initialProjects.length > 0 ? (
                             initialProjects.slice(0, 3).map((proj) => (
-                                <BudgetCard key={proj.id} project={proj} />
+                                <BudgetCard
+                                  key={proj.id}
+                                  project={proj}
+                                  onClick={() => handleNavigateToProject(proj.id)}
+                                  highlighted={highlightedProjectId === proj.id}
+                                />
                             ))
                           ) : (
                             <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400">
@@ -259,9 +280,11 @@ export default function MainDashboard({
                           .filter(c => c.activeInvoiceBlock)
                           .slice(0, 6)
                           .map((client) => (
-                            <div
+                            <button
                               key={client.id}
-                              className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3"
+                              type="button"
+                              onClick={() => handleNavigateToClient(client.id)}
+                              className={`w-full text-left bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${highlightedClientId === client.id ? 'ring-2 ring-indigo-400/60 bg-indigo-50/60' : ''}`}
                             >
                               <div className="flex items-center gap-2">
                                 <span
@@ -301,7 +324,7 @@ export default function MainDashboard({
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </button>
                           ))
                         }
                       </div>
@@ -372,10 +395,17 @@ export default function MainDashboard({
                 projects={initialProjects}
                 clients={initialClients}
                 totalCount={projectsCount}
+                highlightedProjectId={highlightedProjectId}
               />
             )}
 
-            {currentView === 'clients' && <ClientsList clients={initialClients} invoiceBlockHistory={invoiceBlockHistory} />}
+            {currentView === 'clients' && (
+              <ClientsList
+                clients={initialClients}
+                invoiceBlockHistory={invoiceBlockHistory}
+                highlightedClientId={highlightedClientId}
+              />
+            )}
 
             {currentView === 'reports' && (
               <ReportsView

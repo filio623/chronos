@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useRef, useEffect } from 'react';
 import {
   Search,
   ChevronDown,
@@ -44,9 +44,10 @@ import ColorPicker, { InlineColorPicker } from './ColorPicker';
 interface ClientsListProps {
   clients: Client[];
   invoiceBlockHistory?: Record<string, InvoiceBlock[]>;
+  highlightedClientId?: string | null;
 }
 
-const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invoiceBlockHistory = {} }) => {
+const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invoiceBlockHistory = {}, highlightedClientId }) => {
   const [filterText, setFilterText] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientColor, setNewClientColor] = useState('text-indigo-600');
@@ -164,6 +165,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
                   isExpanded={expandedClients.has(client.id)}
                   onToggleExpand={() => toggleExpanded(client.id)}
                   invoiceBlockHistory={invoiceBlockHistory[client.id] || []}
+                  highlighted={highlightedClientId === client.id}
                 />
               ))}
               {filteredClients.length === 0 && (
@@ -186,9 +188,10 @@ interface ClientRowProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   invoiceBlockHistory: InvoiceBlock[];
+  highlighted?: boolean;
 }
 
-const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpand, invoiceBlockHistory }) => {
+const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpand, invoiceBlockHistory, highlighted = false }) => {
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editColor, setEditColor] = useState(client.color || 'text-indigo-600');
@@ -241,10 +244,20 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
   const isOverBudget = budgetLimit > 0 && hoursTracked > budgetLimit;
 
   const hasInvoiceBlock = !!client.activeInvoiceBlock;
+  const rowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (highlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlighted]);
 
   return (
     <>
-      <tr className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''}`}>
+      <tr
+        ref={rowRef}
+        className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60' : ''}`}
+      >
         <td className="px-4 py-3 text-center">
           <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20" />
         </td>

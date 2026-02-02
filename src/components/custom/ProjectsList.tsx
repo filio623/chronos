@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useEffect } from 'react';
+import React, { useState, useTransition, useEffect, useRef } from 'react';
 import {
   Search,
   ChevronDown,
@@ -52,12 +52,13 @@ interface ProjectsListProps {
   projects: Project[];
   clients: Client[];
   totalCount?: number;
+  highlightedProjectId?: string | null;
 }
 
 type SortColumn = 'name' | 'client' | 'hoursUsed' | 'updatedAt';
 type SortOrder = 'asc' | 'desc';
 
-const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCount = projects.length }) => {
+const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCount = projects.length, highlightedProjectId }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -328,7 +329,12 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
             </thead>
             <tbody className="divide-y divide-slate-100">
               {projects.map((project) => (
-                <ProjectRow key={project.id} project={project} clients={clients} />
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  clients={clients}
+                  highlighted={highlightedProjectId === project.id}
+                />
               ))}
             </tbody>
           </table>
@@ -419,9 +425,10 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ label, column, currentS
 interface ProjectRowProps {
   project: Project;
   clients: Client[];
+  highlighted?: boolean;
 }
 
-const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted = false }) => {
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -531,9 +538,19 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients }) => {
 
   const client = clients.find(c => c.id === project.clientId);
   const effectiveRate = project.hourlyRate ?? client?.defaultRate ?? null;
+  const rowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (highlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlighted]);
 
   return (
-    <tr className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''}`}>
+    <tr
+      ref={rowRef}
+      className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60' : ''}`}
+    >
       <td className="px-4 py-3 text-center">
         <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20" />
       </td>

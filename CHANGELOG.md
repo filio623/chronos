@@ -6,8 +6,17 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
-- Added
-  - Expanded the client/project color picker with eight new contrasting swatches and supporting metadata.
+- Pending changes will be added here.
+
+## [0.1.2] - 2026-02-02
+
+### Added
+- Expanded the client/project color picker with eight new contrasting swatches and supporting metadata.
+
+### Changed
+- Dashboard project and client cards (including the active retainers columns and sidebar quick-access list) now navigate directly to the matching project or client while highlighting the row in its list view.
+- Sidebar retainer dots now reuse the project palette color so the left-hand swatches match the project list.
+- Budget overview cards now show the matching project color dot so the dashboard uses the same palette as the selectors.
 
 ## [0.1.1] - 2026-01-31
 

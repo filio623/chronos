@@ -1,4 +1,5 @@
 import React from 'react';
+import { tailwindToHex } from '@/lib/colors';
 import { 
   LayoutDashboard, 
   Clock, 
@@ -14,9 +15,11 @@ interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
   projects: Project[];
+  onRetainerClick?: (projectId: string) => void;
+  highlightedProjectId?: string | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects, onRetainerClick, highlightedProjectId }) => {
   return (
     <aside className="w-[250px] bg-slate-50 border-r border-slate-200 h-screen flex flex-col fixed left-0 top-0 z-20">
       {/* Header */}
@@ -74,15 +77,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Your Retainers</h3>
       </div>
       <div className="px-2 space-y-0.5 flex-1 overflow-y-auto">
-        {projects.slice(0, 3).map((project) => (
-          <button 
-            key={project.id}
-            className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors text-left group"
-          >
-            <span className={`w-2 h-2 rounded-full ${getProjectStatusColor(project.hoursUsed, project.hoursTotal)}`}></span>
-            <span className="truncate">{project.name}</span>
-          </button>
-        ))}
+        {projects.slice(0, 3).map((project) => {
+          const isHighlighted = highlightedProjectId === project.id;
+          return (
+            <button 
+              key={project.id}
+              type="button"
+              onClick={() => onRetainerClick?.(project.id)}
+              className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm rounded-md transition-colors text-left group ${isHighlighted ? 'bg-indigo-50 text-indigo-900 border border-indigo-200 shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: tailwindToHex(project.color || 'text-slate-600') }}
+              ></span>
+              <span className="truncate">{project.name}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Footer / User */}
@@ -101,17 +112,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects }
     </aside>
   );
 };
-
-// Helper for dot color
-function getProjectStatusColor(used: number, total: number): string {
-  // Guard against division by zero - no budget means no warning color
-  if (total <= 0) return 'bg-slate-400';
-  const percentage = (used / total) * 100;
-  if (percentage > 100) return 'bg-rose-500';
-  if (percentage > 80) return 'bg-amber-500';
-  return 'bg-emerald-500';
-}
-
 interface NavItemProps {
   icon: React.ReactNode;
   label: string;
