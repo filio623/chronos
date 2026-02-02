@@ -6,7 +6,8 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
-- Pending changes will be added here.
+- Added
+  - Expanded the client/project color picker with eight new contrasting swatches and supporting metadata.
 
 ## [0.1.1] - 2026-01-31
 

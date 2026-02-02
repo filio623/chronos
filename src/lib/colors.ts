@@ -12,6 +12,14 @@ export const COLOR_PALETTE = [
   'text-orange-600',
   'text-lime-600',
   'text-violet-600',
+  'text-sky-600',
+  'text-fuchsia-600',
+  'text-zinc-700',
+  'text-blue-500',
+  'text-amber-500',
+  'text-lime-500',
+  'text-rose-500',
+  'text-emerald-500',
 ] as const;
 
 export type ColorClass = typeof COLOR_PALETTE[number];
@@ -48,6 +56,14 @@ export function tailwindToHex(twClass: string): string {
     'text-lime-600': '#65a30d',
     'text-violet-600': '#7c3aed',
     'text-slate-600': '#475569',
+    'text-sky-600': '#0ea5e9',
+    'text-fuchsia-600': '#c026d3',
+    'text-zinc-700': '#3f3f46',
+    'text-blue-500': '#3b82f6',
+    'text-amber-500': '#f59e0b',
+    'text-lime-500': '#84cc16',
+    'text-rose-500': '#f43f5e',
+    'text-emerald-500': '#22c55e',
   };
   return colorMap[twClass] || '#475569';
 }
@@ -68,6 +84,14 @@ export function getColorName(twClass: string): string {
     'text-lime-600': 'Lime',
     'text-violet-600': 'Violet',
     'text-slate-600': 'Slate',
+    'text-sky-600': 'Sky',
+    'text-fuchsia-600': 'Fuchsia',
+    'text-zinc-700': 'Zinc',
+    'text-blue-500': 'Blue',
+    'text-amber-500': 'Amber (Warm)',
+    'text-lime-500': 'Lime (Bright)',
+    'text-rose-500': 'Rose (Soft)',
+    'text-emerald-500': 'Emerald (Light)',
   };
   return nameMap[twClass] || 'Default';
 }
