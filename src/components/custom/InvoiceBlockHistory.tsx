@@ -44,8 +44,7 @@ const InvoiceBlockHistory: React.FC<InvoiceBlockHistoryProps> = ({ blocks }) => 
 };
 
 const HistoryItem: React.FC<{ block: InvoiceBlock }> = ({ block }) => {
-  const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-  const overage = Math.max(0, block.hoursTracked - totalAvailable);
+  const overage = Math.max(0, block.hoursTracked - block.hoursTarget);
 
   const startDate = new Date(block.startDate).toLocaleDateString('en-US', {
     month: 'short',
@@ -74,7 +73,7 @@ const HistoryItem: React.FC<{ block: InvoiceBlock }> = ({ block }) => {
       </div>
       <div className="flex items-center justify-between text-slate-500">
         <span>Tracked: {block.hoursTracked.toFixed(1)}h</span>
-        <span>Target: {totalAvailable.toFixed(1)}h</span>
+        <span>Target: {block.hoursTarget.toFixed(1)}h</span>
       </div>
       {block.notes && (
         <p className="mt-2 text-slate-400 italic">{block.notes}</p>

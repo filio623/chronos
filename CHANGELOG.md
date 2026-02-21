@@ -6,7 +6,14 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
-- Pending changes will be added here.
+### Changed
+- Dashboard Recent Activity now live-updates the duration shown for the currently running timer entry, so elapsed time advances in-row alongside `Running...`.
+- Tracker view now uses the same live timer duration for the currently running entry, including live-updated group totals.
+- Browser tab title now keeps showing elapsed time while a timer is paused (`Paused • mm:ss`) instead of clearing.
+- Resuming a paused timer no longer briefly jumps forward by paused minutes before settling; elapsed time now stays stable through resume.
+
+### Fixed
+- Invoice block carry-forward now counts as already-used time in the next block instead of increasing the next block target. New blocks keep their configured target and start with carried overage applied to tracked progress.
 
 ## [0.1.2] - 2026-02-02
 

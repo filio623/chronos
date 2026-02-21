@@ -23,10 +23,9 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-  const hoursRemaining = Math.max(0, totalAvailable - block.hoursTracked);
-  const overage = Math.max(0, block.hoursTracked - totalAvailable);
-  const isOverBudget = block.hoursTracked > totalAvailable;
+  const hoursRemaining = Math.max(0, block.hoursTarget - block.hoursTracked);
+  const overage = Math.max(0, block.hoursTracked - block.hoursTarget);
+  const isOverBudget = block.hoursTracked > block.hoursTarget;
 
   // Determine progress color
   let progressColor = 'bg-emerald-500';
@@ -92,7 +91,7 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
               {block.hoursTracked.toFixed(1)}h
             </span>
             <span className="text-slate-400 text-sm ml-1">
-              / {totalAvailable.toFixed(1)}h
+              / {block.hoursTarget.toFixed(1)}h
             </span>
           </div>
           {isOverBudget ? (
@@ -118,7 +117,7 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
               className="absolute top-0 h-2 bg-rose-300/50 rounded-full"
               style={{
                 left: '100%',
-                width: `${Math.min(50, (overage / totalAvailable) * 100)}%`,
+                width: `${Math.min(50, (overage / Math.max(block.hoursTarget, 0.1)) * 100)}%`,
                 marginLeft: '-1px'
               }}
             />

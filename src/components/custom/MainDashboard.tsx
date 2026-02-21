@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useOptimistic, useTransition, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useOptimistic, useTransition, useRef } from 'react';
 import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import BudgetCard from '@/components/custom/BudgetCard';
@@ -31,16 +31,36 @@ interface MainDashboardProps {
 }
 
 // Helper to calculate elapsed seconds from a timer's start time
-function calculateElapsedSeconds(timer: TimeEntry | null, isPaused: boolean): number {
+function calculateElapsedSeconds(timer: TimeEntry | null): number {
   if (!timer) return 0;
   const startStr = timer.startTimeISO || timer.startTime;
   const start = new Date(startStr).getTime();
   if (isNaN(start)) return 0;
   const pausedSeconds = timer.pausedSeconds ?? 0;
   const pausedAtStr = timer.pausedAtISO || null;
-  const endMs = isPaused && pausedAtStr ? new Date(pausedAtStr).getTime() : Date.now();
-  if (pausedAtStr && isNaN(endMs)) return Math.max(0, Math.floor((Date.now() - start) / 1000) - pausedSeconds);
+  // If pausedAt exists, clamp elapsed time to that instant.
+  // This avoids a temporary jump on resume before server data refreshes pausedSeconds.
+  if (pausedAtStr) {
+    const pausedAtMs = new Date(pausedAtStr).getTime();
+    if (!isNaN(pausedAtMs)) {
+      return Math.max(0, Math.floor((pausedAtMs - start) / 1000) - pausedSeconds);
+    }
+  }
+  const endMs = Date.now();
   return Math.max(0, Math.floor((endMs - start) / 1000) - pausedSeconds);
+}
+
+function formatElapsedDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function formatTitleTime(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 export default function MainDashboard({
@@ -57,7 +77,7 @@ export default function MainDashboard({
   const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
   const [highlightedClientId, setHighlightedClientId] = useState<string | null>(null);
   // Initialize elapsed seconds from activeTimer immediately to avoid race condition
-  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer, !!activeTimer?.isPaused));
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer));
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const lastTimerIdRef = useRef<string | null>(activeTimer?.id || null);
   const [isPending, startTransition] = useTransition();
@@ -85,6 +105,18 @@ export default function MainDashboard({
   const isRunning = optimisticTimerState.status === 'running';
   const isPaused = optimisticTimerState.status === 'paused';
   const isActive = optimisticTimerState.status !== 'stopped';
+  const entriesWithLiveTimer = useMemo(() => {
+    if (!activeTimer) return initialEntries;
+    return initialEntries.map((entry) =>
+      entry.id === activeTimer.id
+        ? {
+            ...entry,
+            duration: formatElapsedDuration(elapsedSeconds),
+            durationSeconds: elapsedSeconds,
+          }
+        : entry
+    );
+  }, [initialEntries, activeTimer, elapsedSeconds]);
 
   // Initialize from active timer - only recalculate when timer ID changes
   useEffect(() => {
@@ -106,7 +138,7 @@ export default function MainDashboard({
 
         // Safety check for NaN
         if (!isNaN(start)) {
-          setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
+          setElapsedSeconds(calculateElapsedSeconds(activeTimer));
         } else {
           console.error("Invalid start time for active timer:", startStr);
           setElapsedSeconds(0);
@@ -124,7 +156,7 @@ export default function MainDashboard({
     let interval: NodeJS.Timeout;
     if (isRunning && activeTimer) {
       interval = setInterval(() => {
-        setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
+        setElapsedSeconds(calculateElapsedSeconds(activeTimer));
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -132,16 +164,10 @@ export default function MainDashboard({
 
   // Browser tab title effect - show elapsed time when timer is running
   useEffect(() => {
-    if (isRunning && elapsedSeconds > 0) {
-      const mins = Math.floor(elapsedSeconds / 60);
-      const secs = elapsedSeconds % 60;
-      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      document.title = `${timeStr} - Chronos`;
-    } else if (isPaused && elapsedSeconds > 0) {
-      const mins = Math.floor(elapsedSeconds / 60);
-      const secs = elapsedSeconds % 60;
-      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      document.title = `Paused • ${timeStr} - Chronos`;
+    if (isRunning) {
+      document.title = `${formatTitleTime(elapsedSeconds)} - Chronos`;
+    } else if (isPaused) {
+      document.title = `Paused • ${formatTitleTime(elapsedSeconds)} - Chronos`;
     } else {
       document.title = 'Chronos';
     }
@@ -180,7 +206,7 @@ export default function MainDashboard({
 
   const handlePauseTimer = async () => {
     if (!activeTimer) return;
-        setElapsedSeconds(calculateElapsedSeconds(activeTimer, isPaused));
+        setElapsedSeconds(calculateElapsedSeconds(activeTimer));
     startTransition(async () => {
       setOptimisticTimerState({ type: 'pause' });
       await pauseTimer(activeTimer.id);
@@ -302,7 +328,7 @@ export default function MainDashboard({
                                         {client.activeInvoiceBlock.hoursTracked.toFixed(1)}h
                                       </span>
                                       <span className="text-slate-400 text-xs ml-1">
-                                        / {(client.activeInvoiceBlock.hoursTarget + client.activeInvoiceBlock.hoursCarriedForward).toFixed(1)}h
+                                        / {client.activeInvoiceBlock.hoursTarget.toFixed(1)}h
                                       </span>
                                     </div>
                                     <span className={`text-xs font-medium ${client.activeInvoiceBlock.progressPercent >= 100 ? 'text-rose-600' : client.activeInvoiceBlock.progressPercent >= 80 ? 'text-amber-600' : 'text-slate-500'}`}>
@@ -344,8 +370,8 @@ export default function MainDashboard({
                       </div>
                       
                       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                          {initialEntries.length > 0 ? (
-                            initialEntries.slice(0, 5).map((entry) => {
+                          {entriesWithLiveTimer.length > 0 ? (
+                            entriesWithLiveTimer.slice(0, 5).map((entry) => {
                               const project = initialProjects.find(p => p.id === entry.projectId);
                               return (
                                 <TimeEntryRow 
@@ -381,7 +407,7 @@ export default function MainDashboard({
                       <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Time Entries</h2>
                   </div>
                   <TrackerList 
-                      entries={initialEntries}
+                      entries={entriesWithLiveTimer}
                       projects={initialProjects}
                       clients={initialClients}
                       tags={initialTags}

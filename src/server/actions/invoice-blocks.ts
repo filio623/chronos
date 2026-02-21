@@ -95,15 +95,15 @@ export async function resetInvoiceBlock(
       return { success: false, error: "Invoice block is not active" };
     }
 
-    // Calculate hours tracked for this block
-    const hoursTracked = await calculateBlockHours(
+    // Calculate current block hours and include carry-forward as already-used hours.
+    const blockHours = await calculateBlockHours(
       block.clientId,
       block.startDate,
       null
     );
 
-    const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-    const overage = Math.max(0, hoursTracked - totalAvailable);
+    const effectiveTracked = blockHours + block.hoursCarriedForward;
+    const overage = Math.max(0, effectiveTracked - block.hoursTarget);
 
     // Complete the current block
     await prisma.invoiceBlock.update({

@@ -35,8 +35,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
   const [newTargetHours, setNewTargetHours] = useState(block.hoursTarget.toString());
   const [createNewBlock, setCreateNewBlock] = useState(true);
 
-  const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-  const overage = Math.max(0, block.hoursTracked - totalAvailable);
+  const overage = Math.max(0, block.hoursTracked - block.hoursTarget);
   const hasOverage = overage > 0;
 
   const handleReset = async () => {
@@ -66,7 +65,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
           <AlertDialogDescription asChild>
             <div className="space-y-3">
               <p>
-                You're about to complete the current invoice block for{' '}
+                You&apos;re about to complete the current invoice block for{' '}
                 <strong>{clientName}</strong>.
               </p>
 
@@ -77,7 +76,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Target:</span>
-                  <span className="font-medium">{totalAvailable.toFixed(1)}h</span>
+                  <span className="font-medium">{block.hoursTarget.toFixed(1)}h</span>
                 </div>
                 {hasOverage && (
                   <div className="flex justify-between text-rose-600">
@@ -135,7 +134,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
                       Carry overage to new block
                     </Label>
                     <p className="text-xs text-slate-500">
-                      The {overage.toFixed(1)}h overage will count against the new block's target
+                      The {overage.toFixed(1)}h overage will count against the new block&apos;s target
                     </p>
                   </div>
                 </div>

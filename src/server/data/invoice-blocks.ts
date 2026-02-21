@@ -6,6 +6,10 @@ export type InvoiceBlockWithHours = InvoiceBlock & {
   progressPercent: number;
 };
 
+function getEffectiveTrackedHours(blockHours: number, carriedForward: number): number {
+  return parseFloat((blockHours + carriedForward).toFixed(2));
+}
+
 /**
  * Get the currently active invoice block for a client
  */
@@ -20,10 +24,10 @@ export async function getActiveInvoiceBlock(clientId: string): Promise<InvoiceBl
 
     if (!block) return null;
 
-    // Calculate hours tracked for this block
-    const hoursTracked = await calculateBlockHours(clientId, block.startDate, block.endDate);
-    const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-    const progressPercent = totalAvailable > 0 ? (hoursTracked / totalAvailable) * 100 : 0;
+    // Effective tracked hours include prior overage carried into this block.
+    const blockHours = await calculateBlockHours(clientId, block.startDate, block.endDate);
+    const hoursTracked = getEffectiveTrackedHours(blockHours, block.hoursCarriedForward);
+    const progressPercent = block.hoursTarget > 0 ? (hoursTracked / block.hoursTarget) * 100 : 0;
 
     return {
       ...block,
@@ -49,9 +53,9 @@ export async function getInvoiceBlockHistory(clientId: string): Promise<InvoiceB
     // Calculate hours for each block
     const blocksWithHours = await Promise.all(
       blocks.map(async (block) => {
-        const hoursTracked = await calculateBlockHours(clientId, block.startDate, block.endDate);
-        const totalAvailable = block.hoursTarget + block.hoursCarriedForward;
-        const progressPercent = totalAvailable > 0 ? (hoursTracked / totalAvailable) * 100 : 0;
+        const blockHours = await calculateBlockHours(clientId, block.startDate, block.endDate);
+        const hoursTracked = getEffectiveTrackedHours(blockHours, block.hoursCarriedForward);
+        const progressPercent = block.hoursTarget > 0 ? (hoursTracked / block.hoursTarget) * 100 : 0;
 
         return {
           ...block,
