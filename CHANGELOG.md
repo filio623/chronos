@@ -6,14 +6,23 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+### Added
+- Invoice block work assignment tools: you can now add specific past entries and selected projects to an active invoice block, with project links continuing to auto-capture future entries for those projects.
+- New “Create Block from Work” flow for clients without an active block, including multi-select entry/project grouping and auto-filled target hours based on selected work.
+- Invoice block lifecycle status controls in history, allowing completed blocks to be manually marked as submitted or paid.
+
 ### Changed
 - Dashboard Recent Activity now live-updates the duration shown for the currently running timer entry, so elapsed time advances in-row alongside `Running...`.
 - Tracker view now uses the same live timer duration for the currently running entry, including live-updated group totals.
 - Browser tab title now keeps showing elapsed time while a timer is paused (`Paused • mm:ss`) instead of clearing.
 - Resuming a paused timer no longer briefly jumps forward by paused minutes before settling; elapsed time now stays stable through resume.
+- Invoice block tracking now uses explicit entry assignments instead of date ranges, and newly created blocks start empty until work is assigned.
+- Invoice block work dialogs now include faster multi-select controls (`Select all` / `Clear`) and clearer guidance around project live-link behavior and target-hour defaults.
+- Invoice block status actions now follow a clearer progression in history (`Completed` -> `Submitted` -> `Paid`) instead of allowing direct completion-to-paid jumps.
 
 ### Fixed
 - Invoice block carry-forward now counts as already-used time in the next block instead of increasing the next block target. New blocks keep their configured target and start with carried overage applied to tracked progress.
+- Prisma migration flow for invoice block statuses now avoids PostgreSQL enum transaction ordering issues by applying legacy `COMPLETED` → `SUBMITTED` data conversion in a follow-up migration.
 
 ## [0.1.2] - 2026-02-02
 

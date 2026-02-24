@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useTransition } from 'react';
-import { Target, RotateCcw, Pencil, Loader2, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Target, RotateCcw, Pencil, Clock } from 'lucide-react';
 import { InvoiceBlock } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import InvoiceBlockResetDialog from './InvoiceBlockResetDialog';
 import InvoiceBlockEditDialog from './InvoiceBlockEditDialog';
+import InvoiceBlockWorkDialog from './InvoiceBlockWorkDialog';
 
 interface InvoiceBlockCardProps {
   block: InvoiceBlock;
@@ -50,6 +50,7 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
           <span className="text-slate-400">since {formattedStartDate}</span>
         </div>
         <div className="flex items-center gap-1">
+          <InvoiceBlockWorkDialog block={block} clientName={clientName} />
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

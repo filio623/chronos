@@ -25,7 +25,7 @@ export async function getActiveInvoiceBlock(clientId: string): Promise<InvoiceBl
     if (!block) return null;
 
     // Effective tracked hours include prior overage carried into this block.
-    const blockHours = await calculateBlockHours(clientId, block.startDate, block.endDate);
+    const blockHours = await calculateBlockHours(block.id);
     const hoursTracked = getEffectiveTrackedHours(blockHours, block.hoursCarriedForward);
     const progressPercent = block.hoursTarget > 0 ? (hoursTracked / block.hoursTarget) * 100 : 0;
 
@@ -53,7 +53,7 @@ export async function getInvoiceBlockHistory(clientId: string): Promise<InvoiceB
     // Calculate hours for each block
     const blocksWithHours = await Promise.all(
       blocks.map(async (block) => {
-        const blockHours = await calculateBlockHours(clientId, block.startDate, block.endDate);
+        const blockHours = await calculateBlockHours(block.id);
         const hoursTracked = getEffectiveTrackedHours(blockHours, block.hoursCarriedForward);
         const progressPercent = block.hoursTarget > 0 ? (hoursTracked / block.hoursTarget) * 100 : 0;
 
@@ -73,47 +73,16 @@ export async function getInvoiceBlockHistory(clientId: string): Promise<InvoiceB
 }
 
 /**
- * Calculate total hours tracked for a client within a date range
+ * Calculate total hours tracked for a specific invoice block
  */
 export async function calculateBlockHours(
-  clientId: string,
-  startDate: Date,
-  endDate: Date | null
+  blockId: string
 ): Promise<number> {
   try {
-    // Get all project IDs for this client
-    const projects = await prisma.project.findMany({
-      where: { clientId },
-      select: { id: true },
-    });
-
-    const projectIds = projects.map((p) => p.id);
-
-    if (projectIds.length === 0) {
-      const result = await prisma.timeEntry.aggregate({
-        where: {
-          startTime: { gte: startDate },
-          ...(endDate ? { startTime: { lte: endDate } } : {}),
-          endTime: { not: null },
-          clientId,
-        },
-        _sum: { duration: true },
-      });
-
-      const totalSeconds = result._sum.duration || 0;
-      return parseFloat((totalSeconds / 3600).toFixed(2));
-    }
-
-    // Sum time entries within the date range
     const result = await prisma.timeEntry.aggregate({
       where: {
-        startTime: { gte: startDate },
-        ...(endDate ? { startTime: { lte: endDate } } : {}),
+        invoiceBlockId: blockId,
         endTime: { not: null }, // Only completed entries
-        OR: [
-          { projectId: { in: projectIds } },
-          { clientId },
-        ],
       },
       _sum: { duration: true },
     });
@@ -122,7 +91,7 @@ export async function calculateBlockHours(
     const totalSeconds = result._sum.duration || 0;
     return parseFloat((totalSeconds / 3600).toFixed(2));
   } catch (error) {
-    console.error(`Failed to calculate block hours for client ${clientId}:`, error);
+    console.error(`Failed to calculate block hours for block ${blockId}:`, error);
     return 0;
   }
 }

@@ -31,13 +31,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import InvoiceBlockCard from './InvoiceBlockCard';
 import CreateInvoiceBlockDialog from './CreateInvoiceBlockDialog';
+import CreateInvoiceBlockFromWorkDialog from './CreateInvoiceBlockFromWorkDialog';
 import InvoiceBlockHistory from './InvoiceBlockHistory';
 import ColorPicker, { InlineColorPicker } from './ColorPicker';
 
@@ -310,7 +306,10 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {!hasInvoiceBlock && (
-              <CreateInvoiceBlockDialog clientId={client.id} clientName={client.name} />
+              <div className="flex items-center gap-2">
+                <CreateInvoiceBlockDialog clientId={client.id} clientName={client.name} />
+                <CreateInvoiceBlockFromWorkDialog clientId={client.id} clientName={client.name} />
+              </div>
             )}
 
             <DropdownMenu>
@@ -350,15 +349,26 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
                 <InvoiceBlockHistory blocks={invoiceBlockHistory} />
               )}
               {!hasInvoiceBlock && invoiceBlockHistory.length > 0 && (
-                <CreateInvoiceBlockDialog
-                  clientId={client.id}
-                  clientName={client.name}
-                  trigger={
-                    <Button variant="outline" size="sm" className="w-full text-xs">
-                      Start New Invoice Block
-                    </Button>
-                  }
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <CreateInvoiceBlockDialog
+                    clientId={client.id}
+                    clientName={client.name}
+                    trigger={
+                      <Button variant="outline" size="sm" className="w-full text-xs">
+                        Start New Invoice Block
+                      </Button>
+                    }
+                  />
+                  <CreateInvoiceBlockFromWorkDialog
+                    clientId={client.id}
+                    clientName={client.name}
+                    trigger={
+                      <Button variant="outline" size="sm" className="w-full text-xs">
+                        Create Block from Work
+                      </Button>
+                    }
+                  />
+                </div>
               )}
             </div>
           </td>

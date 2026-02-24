@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { InvoiceBlockStatus } from "@prisma/client";
 import { z } from "zod";
 
 // Validation Schemas
@@ -87,6 +88,27 @@ function calculateDurationSeconds(params: {
   return Math.max(0, totalSeconds - params.pausedSeconds);
 }
 
+async function resolveLinkedInvoiceBlockId(projectId: string | null): Promise<string | null> {
+  if (!projectId) return null;
+
+  const linked = await prisma.invoiceBlockProject.findFirst({
+    where: {
+      projectId,
+      invoiceBlock: {
+        status: InvoiceBlockStatus.ACTIVE,
+      },
+    },
+    select: {
+      invoiceBlockId: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return linked?.invoiceBlockId ?? null;
+}
+
 export async function startTimer(projectId: string | null, description: string) {
   const parsed = startTimerSchema.safeParse({ projectId, description });
   if (!parsed.success) {
@@ -139,11 +161,13 @@ export async function startTimer(projectId: string | null, description: string) 
       : null;
 
     const resolvedBillable = await resolveDefaultBillable(parsed.data.projectId, project?.clientId ?? null);
+    const linkedInvoiceBlockId = await resolveLinkedInvoiceBlockId(parsed.data.projectId);
 
     await prisma.timeEntry.create({
       data: {
         projectId: parsed.data.projectId,
         clientId: project?.clientId ?? null,
+        invoiceBlockId: linkedInvoiceBlockId,
         description: parsed.data.description,
         startTime: new Date(),
         isBillable: resolvedBillable,
@@ -228,11 +252,13 @@ export async function logManualTimeEntry(data: {
       : null;
 
     const resolvedBillable = parsed.data.isBillable ?? await resolveDefaultBillable(projectId, clientId ?? null);
+    const linkedInvoiceBlockId = await resolveLinkedInvoiceBlockId(projectId);
 
     await prisma.timeEntry.create({
       data: {
         projectId,
         clientId: project?.clientId ?? clientId ?? null,
+        invoiceBlockId: linkedInvoiceBlockId,
         description,
         startTime,
         endTime,
@@ -296,6 +322,7 @@ export async function updateTimeEntry(id: string, data: {
     }
 
     const { description, projectId, startTime, endTime, isBillable, rateOverride } = dataParsed.data;
+    const linkedInvoiceBlockId = projectId !== undefined ? await resolveLinkedInvoiceBlockId(projectId) : null;
 
     // Recalculate duration if times changed
     const newStartTime = startTime ?? existingEntry.startTime;
@@ -327,6 +354,7 @@ export async function updateTimeEntry(id: string, data: {
         ...(endTime !== undefined && { endTime }),
         ...(isBillable !== undefined && { isBillable }),
         ...(rateOverride !== undefined && { rateOverride }),
+        ...(projectId !== undefined && existingEntry.invoiceBlockId === null && { invoiceBlockId: linkedInvoiceBlockId }),
         ...(newEndTime && { duration }),
         ...(endTime !== undefined && endTime !== null && { pausedAt: null }),
       }

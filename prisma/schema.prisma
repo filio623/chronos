@@ -29,6 +29,8 @@ enum ProjectAccess {
 enum InvoiceBlockStatus {
   ACTIVE
   COMPLETED
+  SUBMITTED
+  PAID
 }
 
 // Models
@@ -89,6 +91,7 @@ model Project {
 
   timeEntries TimeEntry[]
   tags        Tag[]
+  invoiceBlockAssignments InvoiceBlockProject[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -111,6 +114,8 @@ model TimeEntry {
   project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   clientId    String?
   client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoiceBlockId String?
+  invoiceBlock InvoiceBlock? @relation(fields: [invoiceBlockId], references: [id], onDelete: SetNull)
 
   tags        Tag[]
 
@@ -120,6 +125,7 @@ model TimeEntry {
   // Indexes for performance
   @@index([projectId])
   @@index([startTime])
+  @@index([invoiceBlockId])
 }
 
 model Tag {
@@ -151,9 +157,26 @@ model InvoiceBlock {
   status              InvoiceBlockStatus @default(ACTIVE)
   notes               String?
 
+  timeEntries         TimeEntry[]
+  projectAssignments  InvoiceBlockProject[]
+
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
   @@index([clientId])
   @@index([status])
+}
+
+model InvoiceBlockProject {
+  id             String       @id @default(uuid())
+  invoiceBlockId String
+  projectId      String
+
+  invoiceBlock   InvoiceBlock @relation(fields: [invoiceBlockId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime     @default(now())
+
+  @@unique([invoiceBlockId, projectId])
+  @@index([projectId])
 }

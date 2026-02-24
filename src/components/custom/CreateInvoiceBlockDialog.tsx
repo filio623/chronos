@@ -67,8 +67,8 @@ const CreateInvoiceBlockDialog: React.FC<CreateInvoiceBlockDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Create Invoice Block</DialogTitle>
           <DialogDescription>
-            Set a target hours budget for <strong>{clientName}</strong>. Track progress and get
-            notified when approaching the limit.
+            Set a target hours budget for <strong>{clientName}</strong>. The block starts empty until
+            you add entries or link projects.
           </DialogDescription>
         </DialogHeader>
 

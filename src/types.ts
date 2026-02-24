@@ -6,7 +6,9 @@ export enum ProjectStatus {
 
 export enum InvoiceBlockStatus {
   Active = 'ACTIVE',
-  Completed = 'COMPLETED'
+  Completed = 'COMPLETED',
+  Submitted = 'SUBMITTED',
+  Paid = 'PAID'
 }
 
 export interface InvoiceBlock {
