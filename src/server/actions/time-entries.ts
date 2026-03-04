@@ -88,25 +88,75 @@ function calculateDurationSeconds(params: {
   return Math.max(0, totalSeconds - params.pausedSeconds);
 }
 
-async function resolveLinkedInvoiceBlockId(projectId: string | null): Promise<string | null> {
-  if (!projectId) return null;
+async function resolveEntryLinkage(params: {
+  projectId: string | null;
+  fallbackClientId?: string | null;
+}): Promise<{ clientId: string | null; invoiceBlockId: string | null }> {
+  let resolvedClientId = params.fallbackClientId ?? null;
 
-  const linked = await prisma.invoiceBlockProject.findFirst({
-    where: {
-      projectId,
-      invoiceBlock: {
-        status: InvoiceBlockStatus.ACTIVE,
+  if (params.projectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: params.projectId },
+      select: { clientId: true },
+    });
+
+    resolvedClientId = project?.clientId ?? resolvedClientId;
+
+    const linked = await prisma.invoiceBlockProject.findFirst({
+      where: {
+        projectId: params.projectId,
+        invoiceBlock: {
+          status: InvoiceBlockStatus.ACTIVE,
+        },
       },
+      select: {
+        invoiceBlockId: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (linked?.invoiceBlockId) {
+      return {
+        clientId: resolvedClientId,
+        invoiceBlockId: linked.invoiceBlockId,
+      };
+    }
+  }
+
+  if (!resolvedClientId) {
+    return {
+      clientId: null,
+      invoiceBlockId: null,
+    };
+  }
+
+  const activeBlock = await prisma.invoiceBlock.findFirst({
+    where: {
+      clientId: resolvedClientId,
+      status: InvoiceBlockStatus.ACTIVE,
     },
     select: {
-      invoiceBlockId: true,
+      id: true,
+      projectAssignments: {
+        select: {
+          id: true,
+        },
+        take: 1,
+      },
     },
     orderBy: {
-      createdAt: "desc",
+      startDate: "desc",
     },
   });
 
-  return linked?.invoiceBlockId ?? null;
+  const isProjectScoped = (activeBlock?.projectAssignments.length ?? 0) > 0;
+
+  return {
+    clientId: resolvedClientId,
+    invoiceBlockId: activeBlock && !isProjectScoped ? activeBlock.id : null,
+  };
 }
 
 export async function startTimer(projectId: string | null, description: string) {
@@ -153,20 +203,15 @@ export async function startTimer(projectId: string | null, description: string) 
     }
 
     // 2. Start new entry
-    const project = projectId
-      ? await prisma.project.findUnique({
-          where: { id: projectId },
-          select: { clientId: true }
-        })
-      : null;
-
-    const resolvedBillable = await resolveDefaultBillable(parsed.data.projectId, project?.clientId ?? null);
-    const linkedInvoiceBlockId = await resolveLinkedInvoiceBlockId(parsed.data.projectId);
+    const { clientId: resolvedClientId, invoiceBlockId: linkedInvoiceBlockId } = await resolveEntryLinkage({
+      projectId: parsed.data.projectId,
+    });
+    const resolvedBillable = await resolveDefaultBillable(parsed.data.projectId, resolvedClientId);
 
     await prisma.timeEntry.create({
       data: {
         projectId: parsed.data.projectId,
-        clientId: project?.clientId ?? null,
+        clientId: resolvedClientId,
         invoiceBlockId: linkedInvoiceBlockId,
         description: parsed.data.description,
         startTime: new Date(),
@@ -244,20 +289,16 @@ export async function logManualTimeEntry(data: {
   }
 
   try {
-    const project = projectId
-      ? await prisma.project.findUnique({
-          where: { id: projectId },
-          select: { clientId: true }
-        })
-      : null;
-
-    const resolvedBillable = parsed.data.isBillable ?? await resolveDefaultBillable(projectId, clientId ?? null);
-    const linkedInvoiceBlockId = await resolveLinkedInvoiceBlockId(projectId);
+    const { clientId: resolvedClientId, invoiceBlockId: linkedInvoiceBlockId } = await resolveEntryLinkage({
+      projectId,
+      fallbackClientId: clientId ?? null,
+    });
+    const resolvedBillable = parsed.data.isBillable ?? await resolveDefaultBillable(projectId, resolvedClientId);
 
     await prisma.timeEntry.create({
       data: {
         projectId,
-        clientId: project?.clientId ?? clientId ?? null,
+        clientId: resolvedClientId,
         invoiceBlockId: linkedInvoiceBlockId,
         description,
         startTime,
@@ -322,7 +363,11 @@ export async function updateTimeEntry(id: string, data: {
     }
 
     const { description, projectId, startTime, endTime, isBillable, rateOverride } = dataParsed.data;
-    const linkedInvoiceBlockId = projectId !== undefined ? await resolveLinkedInvoiceBlockId(projectId) : null;
+    const linkage = projectId !== undefined
+      ? await resolveEntryLinkage({ projectId })
+      : null;
+    const linkedInvoiceBlockId = linkage?.invoiceBlockId ?? null;
+    const resolvedClientId = linkage?.clientId ?? null;
 
     // Recalculate duration if times changed
     const newStartTime = startTime ?? existingEntry.startTime;
@@ -350,6 +395,7 @@ export async function updateTimeEntry(id: string, data: {
       data: {
         ...(description !== undefined && { description }),
         ...(projectId !== undefined && { projectId }),
+        ...(projectId !== undefined && { clientId: resolvedClientId }),
         ...(startTime !== undefined && { startTime }),
         ...(endTime !== undefined && { endTime }),
         ...(isBillable !== undefined && { isBillable }),

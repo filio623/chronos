@@ -23,6 +23,7 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 ### Fixed
 - Invoice block carry-forward now counts as already-used time in the next block instead of increasing the next block target. New blocks keep their configured target and start with carried overage applied to tracked progress.
 - Prisma migration flow for invoice block statuses now avoids PostgreSQL enum transaction ordering issues by applying legacy `COMPLETED` → `SUBMITTED` data conversion in a follow-up migration.
+- New timer entries and manual entries now fall back to a client's active invoice block when no project-specific block link exists, so active retainers keep capturing current work for that client.
 
 ## [0.1.2] - 2026-02-02
 
