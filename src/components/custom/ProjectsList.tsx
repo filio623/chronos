@@ -68,6 +68,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
   const [isPending, startTransition] = useTransition();
   const [newProjectColor, setNewProjectColor] = useState('text-indigo-600');
   const [newProjectBillable, setNewProjectBillable] = useState<'inherit' | 'billable' | 'non-billable'>('inherit');
+  const filterTextRef = useRef(filterText);
 
   // Parse sort from URL
   const currentSort = (searchParams.get('sortBy') as SortColumn) || 'updatedAt';
@@ -75,8 +76,10 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
   const currentPage = parseInt(searchParams.get('page') || '1', 10);
   const pageSize = 10;
 
-  // Debounce search update
+  // Debounce search update — only fires when filterText actually changes
   useEffect(() => {
+    if (filterText === filterTextRef.current) return;
+    filterTextRef.current = filterText;
     const timer = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
       if (filterText) {
