@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useOptimistic, useTransition, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useOptimistic, useTransition, useRef, useCallback } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import BudgetCard from '@/components/custom/BudgetCard';
@@ -73,7 +74,21 @@ export default function MainDashboard({
   invoiceBlockHistory = {},
   reportData
 }: MainDashboardProps) {
-  const [currentView, setCurrentView] = useState('dashboard');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get('view') || 'dashboard';
+  const setCurrentView = useCallback((view: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (view === 'dashboard') {
+      params.delete('view');
+    } else {
+      params.set('view', view);
+    }
+    // Clear pagination/search when switching views
+    params.delete('page');
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [router, pathname, searchParams]);
   const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
   const [highlightedClientId, setHighlightedClientId] = useState<string | null>(null);
   // Initialize elapsed seconds from activeTimer immediately to avoid race condition
