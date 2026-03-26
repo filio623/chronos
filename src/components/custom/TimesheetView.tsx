@@ -39,7 +39,7 @@ interface TimesheetViewProps {
 }
 
 interface TimesheetRow {
-  id: number;
+  id: string;
   projectId: string;
   values: string[];
 }
@@ -203,10 +203,8 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     const aggregatedRows: TimesheetRow[] = [];
 
     projectHoursByDay.forEach((hours, projectId) => {
-      // Generate a numeric id from the project string ID
-      const numericId = projectId.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
       aggregatedRows.push({
-        id: numericId,
+        id: projectId,
         projectId,
         values: hours.map(h => h > 0 ? formatHours(h) : ''),
       });
@@ -214,7 +212,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
     // Add empty row if no rows
     if (aggregatedRows.length === 0) {
-      aggregatedRows.push({ id: Date.now(), projectId: '', values: ['', '', '', '', '', '', ''] });
+      aggregatedRows.push({ id: 'empty', projectId: '', values: ['', '', '', '', '', '', ''] });
     }
 
     return aggregatedRows;

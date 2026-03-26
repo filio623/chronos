@@ -192,13 +192,16 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
     const filterProject = filters?.projectId;
     const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
 
-    const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number | Prisma.Decimal }[]>(
+    const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number | Prisma.Decimal; amount: number | Prisma.Decimal }[]>(
       Prisma.sql`
         SELECT
           c.id as client_id,
           c.name as name,
           c.color as color,
-          COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+          COALESCE(SUM(t.duration), 0) / 3600.0 as hours,
+          COALESCE(SUM(
+            (t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)
+          ), 0) as amount
         FROM "TimeEntry" t
         LEFT JOIN "Project" p ON p.id = t."projectId"
         LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
@@ -217,6 +220,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
       name: c.name,
       hours: parseFloat(toNumber(c.hours).toFixed(2)),
       color: c.color,
+      amount: parseFloat(toNumber(c.amount).toFixed(2)),
     }));
   }
 
@@ -229,49 +233,47 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
     }));
   }
 
-  const where = await buildEntryWhere(startDate, endDate, filters);
-  // Use Prisma groupBy with aggregation
-  const projectHours = await prisma.timeEntry.groupBy({
-    by: ['projectId'],
-    where: {
-      ...where,
-      projectId: { not: null },
-    },
-    _sum: { duration: true },
-  });
+  const filterProject = filters?.projectId;
+  const filterClient2 = filters?.clientId && !filters?.projectId ? filters.clientId : null;
 
-  // Filter to only projects with hours and fetch project details
-  const projectsWithHours = projectHours.filter(p => (p._sum.duration || 0) > 0);
+  const projectDistribution = await prisma.$queryRaw<{
+    project_id: string;
+    name: string;
+    color: string;
+    client_name: string | null;
+    hours: number | Prisma.Decimal;
+    amount: number | Prisma.Decimal;
+  }[]>(
+    Prisma.sql`
+      SELECT
+        p.id as project_id,
+        p.name as name,
+        p.color as color,
+        c.name as client_name,
+        COALESCE(SUM(t.duration), 0) / 3600.0 as hours,
+        COALESCE(SUM(
+          (t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)
+        ), 0) as amount
+      FROM "TimeEntry" t
+      JOIN "Project" p ON p.id = t."projectId"
+      LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
+      WHERE t."startTime" >= ${startDate}
+        AND t."startTime" <= ${endDate}
+        AND t."endTime" IS NOT NULL
+        AND t."projectId" IS NOT NULL
+        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
+        ${filterClient2 ? Prisma.sql`AND (t."clientId" = ${filterClient2} OR p."clientId" = ${filterClient2})` : Prisma.empty}
+      GROUP BY p.id, p.name, p.color, c.name
+      HAVING COALESCE(SUM(t.duration), 0) > 0
+      ORDER BY hours DESC
+    `
+  );
 
-  if (projectsWithHours.length === 0) {
-    return [];
-  }
-
-  // Fetch project names and colors for those with hours
-  const projectDetails = await prisma.project.findMany({
-    where: {
-      id: { in: projectsWithHours.map(p => p.projectId!).filter(Boolean) },
-    },
-    select: {
-      id: true,
-      name: true,
-      color: true,
-      client: { select: { name: true } },
-    },
-  });
-
-  const projectMap = new Map(projectDetails.map(p => [p.id, p]));
-
-  return projectsWithHours
-    .map((p) => {
-      const project = projectMap.get(p.projectId!);
-      if (!project) return null;
-      return {
-        name: project.name,
-        hours: parseFloat(((p._sum.duration || 0) / 3600).toFixed(2)),
-        color: project.color,
-        clientName: project.client?.name ?? null,
-      };
-    })
-    .filter((p): p is NonNullable<typeof p> => p !== null);
+  return projectDistribution.map(p => ({
+    name: p.name,
+    hours: parseFloat(toNumber(p.hours).toFixed(2)),
+    color: p.color,
+    clientName: p.client_name ?? null,
+    amount: parseFloat(toNumber(p.amount).toFixed(2)),
+  }));
 }

@@ -70,6 +70,7 @@ interface ReportsViewProps {
       hours: number;
       color: string;
       clientName?: string | null;
+      amount?: number;
     }[];
   };
   projects?: { id: string; name: string; clientId?: string | null }[];
@@ -537,7 +538,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                   label={formatDistributionLabel(item.name)}
                   sublabel={groupBy === 'project' ? item.clientName || 'No client' : groupByLabel}
                   time={`${item.hours.toFixed(2)}h`}
-                  amount="0.00"
+                  amount={(item.amount ?? 0).toFixed(2)}
                   color={getHexColor(item.color)}
                 />
               ))}

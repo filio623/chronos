@@ -59,6 +59,11 @@ export async function getProjects(filters?: {
     // Get total count for pagination
     const totalCount = await prisma.project.count({ where });
 
+    // When sorting by hoursUsed, we must fetch ALL matching projects first,
+    // compute hours, sort, then paginate — otherwise pagination happens before
+    // the sort and the page contents are wrong.
+    const needsFullFetch = sortBy === 'hoursUsed';
+
     // Fetch projects with client info
     const projects = await prisma.project.findMany({
       where,
@@ -68,8 +73,7 @@ export async function getProjects(filters?: {
         },
       },
       orderBy,
-      skip,
-      take: pageSize,
+      ...(needsFullFetch ? {} : { skip, take: pageSize }),
     });
 
     // Get hours for all fetched projects in a single query using aggregation
@@ -99,13 +103,14 @@ export async function getProjects(filters?: {
       hoursUsed: hoursMap.get(p.id) || 0,
     }));
 
-    // Sort by hoursUsed if requested (in-memory since can't sort by aggregation in Prisma)
+    // Sort by hoursUsed across full dataset, then paginate in memory
     if (sortBy === 'hoursUsed') {
       projectsWithHours.sort((a, b) => {
         return sortOrder === 'asc'
           ? a.hoursUsed - b.hoursUsed
           : b.hoursUsed - a.hoursUsed;
       });
+      projectsWithHours = projectsWithHours.slice(skip, skip + pageSize);
     }
 
     return { projects: projectsWithHours, totalCount };

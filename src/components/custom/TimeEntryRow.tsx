@@ -101,8 +101,15 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
 
   const handleRateClear = () => {
     setLocalRateOverride(null);
-    setLocalEffectiveRate(null);
-    setLocalRateSource('none');
+    // Restore inherited rate from project or client instead of clearing to null
+    if (project?.hourlyRate !== null && project?.hourlyRate !== undefined) {
+      setLocalEffectiveRate(project.hourlyRate);
+      setLocalRateSource('project');
+    } else {
+      // Will be corrected on server revalidation with actual client rate
+      setLocalEffectiveRate(null);
+      setLocalRateSource('none');
+    }
     startTransition(async () => {
       await updateTimeEntry(entry.id, { rateOverride: null });
     });
@@ -137,11 +144,6 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
       {/* Left Side: Description & Project Info */}
       <div className="flex items-center gap-4 flex-1 min-w-0 mr-4">
         
-        {/* Count Badge (Optional visual mimic) */}
-        <div className="hidden sm:flex w-6 h-6 items-center justify-center rounded bg-slate-100 text-[10px] font-medium text-slate-500 border border-slate-200">
-           1
-        </div>
-
         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
           {/* Description */}
           <span className="text-sm font-medium text-slate-700 truncate cursor-pointer hover:underline">
