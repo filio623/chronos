@@ -1,13 +1,14 @@
 import React from 'react';
 import { tailwindToHex } from '@/lib/colors';
-import { 
-  LayoutDashboard, 
-  Clock, 
-  Briefcase, 
-  FileBarChart, 
+import {
+  LayoutDashboard,
+  Clock,
+  Briefcase,
+  FileBarChart,
   Settings,
   Users,
-  CalendarDays
+  CalendarDays,
+  Building2
 } from 'lucide-react';
 import { Project } from '@/types';
 
@@ -96,18 +97,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, projects, 
         })}
       </div>
 
-      {/* Footer / User */}
+      {/* Footer / Workspace */}
       <div className="p-3 border-t border-slate-200">
-        <button className="flex items-center gap-3 w-full p-2 hover:bg-white rounded-md border border-transparent hover:border-slate-200 hover:shadow-sm transition-all text-left">
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center text-xs font-medium text-slate-600">
-                JD
+        <div className="flex items-center gap-3 w-full p-2 text-left">
+            <div className="w-8 h-8 rounded-md bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                <Building2 size={16} className="text-slate-500" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-900 truncate">John Doe</p>
-                <p className="text-[10px] text-slate-500 truncate">john@design.co</p>
+                <p className="text-xs font-medium text-slate-900 truncate">Workspace</p>
             </div>
             <Settings size={14} className="text-slate-400" />
-        </button>
+        </div>
       </div>
     </aside>
   );
