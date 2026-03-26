@@ -73,6 +73,73 @@ export async function getInvoiceBlockHistory(clientId: string): Promise<InvoiceB
 }
 
 /**
+ * Get invoice block history for all clients in a single query (fixes N+1)
+ */
+export async function getInvoiceBlockHistoryBatched(): Promise<Record<string, InvoiceBlockWithHours[]>> {
+  try {
+    const blocks = await prisma.invoiceBlock.findMany({
+      orderBy: { startDate: 'desc' },
+    });
+
+    if (blocks.length === 0) return {};
+
+    // Batch calculate hours for all blocks
+    const blockIds = blocks.map(b => b.id);
+    const hoursByBlock = await calculateBlockHoursBatched(blockIds);
+
+    // Group by clientId
+    const result: Record<string, InvoiceBlockWithHours[]> = {};
+    for (const block of blocks) {
+      const blockHours = hoursByBlock.get(block.id) ?? 0;
+      const hoursTracked = getEffectiveTrackedHours(blockHours, block.hoursCarriedForward);
+      const progressPercent = block.hoursTarget > 0 ? (hoursTracked / block.hoursTarget) * 100 : 0;
+
+      if (!result[block.clientId]) {
+        result[block.clientId] = [];
+      }
+      result[block.clientId].push({
+        ...block,
+        hoursTracked,
+        progressPercent,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Failed to fetch batched invoice block history:", error);
+    return {};
+  }
+}
+
+/**
+ * Calculate hours for multiple blocks in a single query
+ */
+async function calculateBlockHoursBatched(blockIds: string[]): Promise<Map<string, number>> {
+  try {
+    const results = await prisma.timeEntry.groupBy({
+      by: ['invoiceBlockId'],
+      where: {
+        invoiceBlockId: { in: blockIds },
+        endTime: { not: null },
+      },
+      _sum: { duration: true },
+    });
+
+    const map = new Map<string, number>();
+    for (const row of results) {
+      if (row.invoiceBlockId) {
+        const totalSeconds = row._sum.duration || 0;
+        map.set(row.invoiceBlockId, parseFloat((totalSeconds / 3600).toFixed(2)));
+      }
+    }
+    return map;
+  } catch (error) {
+    console.error("Failed to batch calculate block hours:", error);
+    return new Map();
+  }
+}
+
+/**
  * Calculate total hours tracked for a specific invoice block
  */
 export async function calculateBlockHours(

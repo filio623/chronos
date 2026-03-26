@@ -1,50 +1,7 @@
 import ProjectsList from "@/components/custom/ProjectsList";
 import { getProjects } from "@/server/data/projects";
-import { getClientsWithData, ClientWithData } from "@/server/data/clients";
-import { Project, Client, InvoiceBlockStatus } from "@/types";
-import { InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
-
-type ProjectWithHours = Awaited<ReturnType<typeof getProjects>>["projects"][number];
-
-const mapProject = (p: ProjectWithHours): Project => ({
-  id: p.id,
-  name: p.name,
-  client: p.client?.name || "No Client",
-  clientId: p.clientId,
-  color: p.color,
-  hoursUsed: p.hoursUsed,
-  hoursTotal: p.budgetLimit,
-  isFavorite: p.isFavorite,
-  isArchived: p.isArchived,
-  defaultBillable: p.defaultBillable,
-  hourlyRate: p.hourlyRate,
-});
-
-const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }) => ({
-  id: b.id,
-  clientId: b.clientId,
-  hoursTarget: b.hoursTarget,
-  hoursCarriedForward: b.hoursCarriedForward,
-  startDate: b.startDate.toISOString(),
-  endDate: b.endDate ? b.endDate.toISOString() : null,
-  status: b.status as InvoiceBlockStatus,
-  notes: b.notes ?? undefined,
-  hoursTracked: b.hoursTracked,
-  progressPercent: b.progressPercent,
-});
-
-const mapClient = (c: ClientWithData): Client => ({
-  id: c.id,
-  name: c.name,
-  address: c.address ?? undefined,
-  currency: c.currency,
-  color: c.color,
-  budgetLimit: c.budgetLimit,
-  hoursTracked: c.hoursTracked,
-  activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock) : null,
-  defaultBillable: c.defaultBillable,
-  defaultRate: c.defaultRate,
-});
+import { getClientsWithData } from "@/server/data/clients";
+import { mapProject, mapClient } from "@/lib/mappers";
 
 export default async function ProjectsPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
