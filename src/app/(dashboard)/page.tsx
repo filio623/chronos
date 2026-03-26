@@ -1,17 +1,16 @@
-import MainDashboard from "@/components/custom/MainDashboard";
-import { getProjects, ProjectWithHours } from "@/server/data/projects";
+import { redirect } from "next/navigation";
+import DashboardView from "@/components/custom/DashboardView";
+import { getProjects } from "@/server/data/projects";
 import { getClientsWithData, ClientWithData } from "@/server/data/clients";
 import { getTimeEntries, getActiveTimer, TimeEntryWithRelations } from "@/server/data/time-entries";
 import { getTags } from "@/server/data/tags";
-import { getSummaryMetrics, getDailyActivity, getDailyActivityGrouped, getProjectDistribution } from "@/server/data/reports";
-import { getInvoiceBlockHistory } from "@/server/data/invoice-blocks";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
-import { Project, Client, TimeEntry, InvoiceBlock, InvoiceBlockStatus } from "@/types";
+import { Project, Client, TimeEntry, InvoiceBlockStatus, Tag } from "@/types";
 import { TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
 
-/**
- * Mappers to convert Prisma models to our UI Types
- */
+// --- Mappers (will be extracted to src/lib/mappers.ts in Phase 2) ---
+
+type ProjectWithHours = Awaited<ReturnType<typeof getProjects>>["projects"][number];
+
 const mapProject = (p: ProjectWithHours): Project => ({
   id: p.id,
   name: p.name,
@@ -26,7 +25,7 @@ const mapProject = (p: ProjectWithHours): Project => ({
   hourlyRate: p.hourlyRate,
 });
 
-const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }): InvoiceBlock => ({
+const mapInvoiceBlock = (b: PrismaInvoiceBlock & { hoursTracked: number; progressPercent: number }) => ({
   id: b.id,
   clientId: b.clientId,
   hoursTarget: b.hoursTarget,
@@ -102,7 +101,7 @@ const mapEntry = (
     isPaused,
     endTime: e.endTime ? e.endTime.toISOString() : isPaused ? "Paused" : "Running...",
     duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
-    durationSeconds: durationSeconds,
+    durationSeconds,
     isBillable: e.isBillable,
     rateOverride: entryRateOverride,
     effectiveRate,
@@ -117,75 +116,33 @@ const mapEntry = (
   };
 };
 
-export default async function Home(props: {
+export default async function DashboardPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = await props.searchParams;
-  
-  // Default range: Last 30 days
-  const endDate = endOfDay(new Date());
-  const startDate = startOfDay(subDays(endDate, 30));
 
-  const reportFilters = {
-    projectId: typeof searchParams?.project === 'string' ? searchParams.project : undefined,
-    clientId: typeof searchParams?.client === 'string' ? searchParams.client : undefined,
-    groupBy: typeof searchParams?.groupBy === 'string' ? searchParams.groupBy as 'project' | 'client' | 'day' : 'project',
-    tab: typeof searchParams?.reportTab === 'string' ? searchParams.reportTab as 'summary' | 'detailed' | 'weekly' | 'shared' : 'summary',
-    from: typeof searchParams?.from === 'string' ? startOfDay(new Date(searchParams.from)) : startDate,
-    to: typeof searchParams?.to === 'string' ? endOfDay(new Date(searchParams.to)) : endDate,
-  };
+  // Handle legacy ?view= redirects (Phase 1e)
+  const viewParam = typeof searchParams?.view === 'string' ? searchParams.view : null;
+  if (viewParam && viewParam !== 'dashboard') {
+    const validViews = ['projects', 'clients', 'tracker', 'timesheet', 'reports'];
+    if (validViews.includes(viewParam)) {
+      redirect(`/${viewParam}`);
+    }
+  }
 
-  // Parse filters
-  const projectFilters = {
-    search: typeof searchParams?.search === 'string' ? searchParams.search : undefined,
-    clientId: typeof searchParams?.client === 'string' ? searchParams.client : undefined,
-    status: typeof searchParams?.status === 'string' ? (searchParams.status as 'active' | 'archived') : 'active',
-    sortBy: typeof searchParams?.sortBy === 'string' ? (searchParams.sortBy as 'name' | 'client' | 'hoursUsed' | 'updatedAt') : 'updatedAt',
-    sortOrder: typeof searchParams?.sortOrder === 'string' ? (searchParams.sortOrder as 'asc' | 'desc') : 'desc',
-    page: typeof searchParams?.page === 'string' ? parseInt(searchParams.page, 10) : 1,
-    pageSize: 10,
-  };
-
-  // Fetch data in parallel
-  const [
-    projectsData,
-    clientsData,
-    entriesData,
-    activeTimerData,
-    summaryMetrics,
-    dailyActivity,
-    dailyActivityGrouped,
-    projectDistribution,
-    tagsData
-  ] = await Promise.all([
-    getProjects(projectFilters),
+  // Fetch dashboard-specific data
+  const [projectsData, clientsData, entriesData, activeTimerData, tagsData] = await Promise.all([
+    getProjects({ status: 'active', pageSize: 50 }),
     getClientsWithData(),
-    getTimeEntries(),
+    getTimeEntries(10),
     getActiveTimer(),
-    getSummaryMetrics(reportFilters.from, reportFilters.to, reportFilters),
-    getDailyActivity(reportFilters.from, reportFilters.to, reportFilters),
-    getDailyActivityGrouped(reportFilters.from, reportFilters.to, reportFilters),
-    getProjectDistribution(reportFilters.from, reportFilters.to, reportFilters),
-    getTags()
+    getTags(),
   ]);
 
-  // Fetch invoice block history for all clients
-  const invoiceBlockHistoryPromises = clientsData.map(async (client: ClientWithData) => {
-    const history = await getInvoiceBlockHistory(client.id);
-    return { clientId: client.id, history: history.map(mapInvoiceBlock) };
-  });
-  const invoiceBlockHistoryData: { clientId: string; history: InvoiceBlock[] }[] = await Promise.all(invoiceBlockHistoryPromises);
-  const invoiceBlockHistory: Record<string, InvoiceBlock[]> = {};
-  invoiceBlockHistoryData.forEach(({ clientId, history }: { clientId: string; history: InvoiceBlock[] }) => {
-    invoiceBlockHistory[clientId] = history;
-  });
-
-  // Map to UI types
   const projects = projectsData.projects.map(mapProject);
-  const projectsCount = projectsData.totalCount;
   const clients = clientsData.map(mapClient);
-  const projectMap = new Map<string, Project>(projects.map((p: Project) => [p.id, p]));
-  const clientMap = new Map<string, Client>(clients.map((c: Client) => [c.id, c]));
+  const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
+  const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
   const entries = entriesData.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
   const activeTimer = activeTimerData ? mapEntry(activeTimerData, projectMap, clientMap) : null;
   const tags = tagsData.map((tag: { id: string; name: string; color: string | null; isSystem: boolean }) => ({
@@ -196,20 +153,12 @@ export default async function Home(props: {
   }));
 
   return (
-    <MainDashboard
-      initialProjects={projects}
-      projectsCount={projectsCount}
-      initialClients={clients}
-      initialEntries={entries}
+    <DashboardView
+      projects={projects}
+      clients={clients}
+      entries={entries}
       activeTimer={activeTimer}
-      initialTags={tags}
-      invoiceBlockHistory={invoiceBlockHistory}
-      reportData={{
-        summary: summaryMetrics,
-        dailyActivity,
-        dailyActivityGrouped,
-        projectDistribution
-      }}
+      tags={tags}
     />
   );
 }

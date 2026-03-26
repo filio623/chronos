@@ -31,14 +31,15 @@ export async function getTimeEntries(limit = 50): Promise<TimeEntryWithRelations
   }
 }
 
-export async function getActiveTimer(): Promise<TimeEntry | null> {
+export async function getActiveTimer(): Promise<TimeEntryWithRelations | null> {
   try {
     const activeEntry = await prisma.timeEntry.findFirst({
       where: {
         endTime: null
       },
       include: {
-        project: true
+        tags: true,
+        project: { include: { client: true } },
       }
     });
     return activeEntry;
