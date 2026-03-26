@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useOptimistic, useTransition, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { Menu } from 'lucide-react';
 import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import { Project, TimeEntry, Client } from '@/types';
@@ -64,6 +65,7 @@ export default function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const currentView = pathnameToView(pathname);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const navigateTo = useCallback((view: string) => {
     const path = view === 'dashboard' ? '/' : `/${view}`;
@@ -196,23 +198,38 @@ export default function AppShell({
         onViewChange={navigateTo}
         projects={initialProjects}
         onRetainerClick={handleNavigateToProject}
+        mobileOpen={mobileSidebarOpen}
+        onMobileOpenChange={setMobileSidebarOpen}
       />
 
-      <main className="flex-1 ml-[250px] min-w-0 flex flex-col h-screen">
-        <TimerBar
-          projects={initialProjects}
-          clients={initialClients}
-          activeProject={activeProject}
-          isActive={isActive}
-          isPaused={isPaused}
-          onStart={handleStartTimer}
-          onStop={handleStopTimer}
-          onPause={handlePauseTimer}
-          onResume={handleResumeTimer}
-          elapsedSeconds={elapsedSeconds}
-        />
+      <main className="flex-1 md:ml-[250px] min-w-0 flex flex-col h-screen">
+        <div className="flex items-center">
+          {/* Mobile hamburger menu */}
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="md:hidden p-3 text-slate-500 hover:text-slate-900"
+            aria-label="Open sidebar"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex-1">
+            <TimerBar
+              projects={initialProjects}
+              clients={initialClients}
+              activeProject={activeProject}
+              isActive={isActive}
+              isPaused={isPaused}
+              onStart={handleStartTimer}
+              onStop={handleStopTimer}
+              onPause={handlePauseTimer}
+              onResume={handleResumeTimer}
+              elapsedSeconds={elapsedSeconds}
+            />
+          </div>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 scroll-smooth">
           {children}
           <div className="h-10"></div>
         </div>
