@@ -280,13 +280,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               <TabsTrigger value="summary" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
                 Summary
               </TabsTrigger>
-              <TabsTrigger value="detailed" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
+              <TabsTrigger value="detailed" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
                 Detailed
               </TabsTrigger>
-              <TabsTrigger value="weekly" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
+              <TabsTrigger value="weekly" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
                 Weekly
               </TabsTrigger>
-              <TabsTrigger value="shared" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
+              <TabsTrigger value="shared" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
                 Shared
               </TabsTrigger>
             </TabsList>
@@ -593,34 +593,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
       )}
 
       {/* Detailed Tab Content */}
-      {activeTab === 'detailed' && (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center text-slate-400">
-          <FileText size={48} className="mx-auto mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-700 mb-2">Detailed Report</h3>
-          <p className="text-sm">Shows individual time entries with full details.</p>
-          <p className="text-xs mt-4 text-slate-400">Coming soon...</p>
-        </div>
-      )}
-
-      {/* Weekly Tab Content */}
-      {activeTab === 'weekly' && (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center text-slate-400">
-          <CalendarDays size={48} className="mx-auto mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-700 mb-2">Weekly Report</h3>
-          <p className="text-sm">Shows weekly breakdown of hours by day.</p>
-          <p className="text-xs mt-4 text-slate-400">Coming soon...</p>
-        </div>
-      )}
-
-      {/* Shared Tab Content */}
-      {activeTab === 'shared' && (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center text-slate-400">
-          <Share2 size={48} className="mx-auto mb-4 text-slate-300" />
-          <h3 className="text-lg font-medium text-slate-700 mb-2">Shared Reports</h3>
-          <p className="text-sm">Generate shareable links to reports.</p>
-          <p className="text-xs mt-4 text-slate-400">Coming soon...</p>
-        </div>
-      )}
     </div>
   );
 };
