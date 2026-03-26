@@ -66,6 +66,7 @@ function entryBelongsToClient(
 function revalidateInvoicePaths() {
   revalidatePath("/");
   revalidatePath("/clients");
+  revalidatePath("/reports");
 }
 
 /**

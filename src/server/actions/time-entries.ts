@@ -220,6 +220,9 @@ export async function startTimer(projectId: string | null, description: string) 
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
+    revalidatePath("/reports");
     return { success: true };
   } catch (error) {
     console.error("Failed to start timer:", error);
@@ -260,6 +263,9 @@ export async function stopTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
+    revalidatePath("/reports");
     return { success: true };
   } catch (error) {
     console.error("Failed to stop timer:", error);
@@ -310,6 +316,9 @@ export async function logManualTimeEntry(data: {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
+    revalidatePath("/reports");
     return { success: true };
   } catch (error) {
     console.error("Failed to log manual entry:", error);
@@ -328,6 +337,9 @@ export async function deleteTimeEntry(id: string) {
       where: { id: parsed.data }
     });
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
+    revalidatePath("/reports");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete entry:", error);
@@ -407,6 +419,9 @@ export async function updateTimeEntry(id: string, data: {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
+    revalidatePath("/reports");
     return { success: true };
   } catch (error) {
     console.error("Failed to update entry:", error);
@@ -434,6 +449,8 @@ export async function pauseTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
     return { success: true };
   } catch (error) {
     console.error("Failed to pause timer:", error);
@@ -469,6 +486,8 @@ export async function resumeTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
+    revalidatePath("/timesheet");
     return { success: true };
   } catch (error) {
     console.error("Failed to resume timer:", error);

@@ -54,6 +54,7 @@ export async function seedSystemTags() {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true };
   } catch (error) {
     console.error("Failed to seed system tags:", error);
@@ -89,6 +90,7 @@ export async function createTag(formData: FormData) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true, data: tag };
   } catch (error: any) {
     // Handle unique constraint violation
@@ -126,6 +128,7 @@ export async function updateTag(id: string, formData: FormData) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true };
   } catch (error: any) {
     if (error?.code === 'P2002') {
@@ -160,6 +163,7 @@ export async function deleteTag(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete tag:", error);
@@ -187,6 +191,7 @@ export async function assignTagsToProject(projectId: string, tagIds: string[]) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true };
   } catch (error) {
     console.error("Failed to assign tags to project:", error);
@@ -214,6 +219,7 @@ export async function assignTagsToEntry(entryId: string, tagIds: string[]) {
     });
 
     revalidatePath("/");
+    revalidatePath("/tracker");
     return { success: true };
   } catch (error) {
     console.error("Failed to assign tags to entry:", error);
