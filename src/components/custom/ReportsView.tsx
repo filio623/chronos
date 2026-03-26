@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { tailwindToHex } from '@/lib/colors';
 
 interface ReportsViewProps {
   data: {
@@ -79,24 +80,8 @@ interface ReportsViewProps {
 
 type ProjectOption = { id: string; name: string; clientId?: string | null };
 
-const COLOR_MAP: Record<string, string> = {
-  'text-indigo-600': '#4f46e5',
-  'text-purple-600': '#9333ea',
-  'text-blue-600': '#2563eb',
-  'text-emerald-600': '#059669',
-  'text-rose-600': '#e11d48',
-  'text-amber-600': '#d97706',
-  'text-slate-600': '#475569',
-  'text-cyan-600': '#0891b2',
-  'text-pink-600': '#db2777',
-  'text-teal-600': '#0d9488',
-  'text-orange-600': '#ea580c',
-  'text-lime-600': '#65a30d',
-  'text-violet-600': '#7c3aed',
-};
-
 const getHexColor = (color: string) => {
-  return COLOR_MAP[color] || COLOR_MAP[color.replace('text-', 'bg-')] || '#6366f1';
+  return tailwindToHex(color);
 };
 
 type DatePreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30Days' | 'thisYear' | 'custom';

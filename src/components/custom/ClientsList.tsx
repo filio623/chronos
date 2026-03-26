@@ -126,7 +126,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
               <button
                   type="submit"
                   disabled={isPending}
-                  className="px-6 py-2 bg-sky-400 text-white text-sm font-semibold rounded-r-md hover:bg-sky-500 transition-colors uppercase tracking-wide disabled:bg-sky-300 flex items-center justify-center min-w-[80px]"
+                  className="px-6 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-r-md hover:bg-indigo-700 transition-colors uppercase tracking-wide disabled:bg-indigo-400 flex items-center justify-center min-w-[80px]"
               >
                   {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Add'}
               </button>

@@ -39,19 +39,14 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
   const [localEffectiveRate, setLocalEffectiveRate] = useState<number | null>(entry.effectiveRate ?? null);
   const [localRateSource, setLocalRateSource] = useState(entry.rateSource ?? 'none');
 
+  // Sync local state from server data after revalidation
   useEffect(() => {
     setSelectedTagIds(entry.tags?.map(t => t.id) || []);
-  }, [entry.tags]);
-
-  useEffect(() => {
     setLocalBillable(entry.isBillable);
-  }, [entry.isBillable]);
-
-  useEffect(() => {
     setLocalRateOverride(entry.rateOverride ?? null);
     setLocalEffectiveRate(entry.effectiveRate ?? null);
     setLocalRateSource(entry.rateSource ?? 'none');
-  }, [entry.rateOverride, entry.effectiveRate, entry.rateSource]);
+  }, [entry.tags, entry.isBillable, entry.rateOverride, entry.effectiveRate, entry.rateSource]);
 
   useEffect(() => {
     if (!rateOpen) return;
