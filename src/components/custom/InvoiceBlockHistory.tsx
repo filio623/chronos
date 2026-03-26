@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useTransition } from 'react';
+import { toast } from "sonner";
 import { Clock, Check } from 'lucide-react';
 import { InvoiceBlock, InvoiceBlockStatus } from '@/types';
 import { updateInvoiceBlockStatus } from '@/server/actions/invoice-blocks';
@@ -80,7 +81,7 @@ const HistoryItem: React.FC<{ block: InvoiceBlock }> = ({ block }) => {
     startTransition(async () => {
       const result = await updateInvoiceBlockStatus(block.id, status);
       if (!result.success) {
-        alert(result.error || 'Failed to update block status');
+        toast.error(result.error || 'Failed to update block status');
       }
     });
   };

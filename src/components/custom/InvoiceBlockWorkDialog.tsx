@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Loader2, Plus, Link2 } from "lucide-react";
 import { InvoiceBlock } from "@/types";
 import { assignWorkToInvoiceBlock, getInvoiceBlockWorkOptions } from "@/server/actions/invoice-blocks";
@@ -70,7 +71,7 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
       setOptions(result.data as WorkOptionsData);
     } else {
       setOptions(null);
-      alert(result.error || "Failed to load invoice block work options");
+      toast.error(result.error || "Failed to load invoice block work options");
     }
 
     setIsLoading(false);
@@ -159,7 +160,7 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
 
   const handleApply = () => {
     if (selectedEntryIds.size === 0 && selectedProjectIds.size === 0) {
-      alert("Select at least one entry or project");
+      toast.error("Select at least one entry or project");
       return;
     }
 
@@ -171,7 +172,7 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
       });
 
       if (!result.success) {
-        alert(result.error || "Failed to add work to invoice block");
+        toast.error(result.error || "Failed to add work to invoice block");
         return;
       }
 

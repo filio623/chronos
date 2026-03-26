@@ -47,6 +47,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import ColorPicker, { InlineColorPicker } from './ColorPicker';
+import { toast } from "sonner";
+import ConfirmDeleteDialog from "@/components/custom/ConfirmDeleteDialog";
 
 interface ProjectsListProps {
   projects: Project[];
@@ -133,7 +135,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
         setIsDialogOpen(false);
         setNewProjectBillable('inherit');
       } else {
-        alert(result.error || 'Failed to create project');
+        toast.error(result.error || 'Failed to create project');
       }
     });
   };
@@ -444,6 +446,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
         ? 'billable'
         : 'non-billable'
   );
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; project: { id: string; name: string } | null }>({ open: false, project: null });
 
   const handleBudgetSave = async () => {
     const newBudget = parseFloat(budgetValue) || 0;
@@ -467,7 +470,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
       if (result.success) {
         setIsEditingBudget(false);
       } else {
-        alert(result.error || 'Failed to update budget');
+        toast.error(result.error || 'Failed to update budget');
       }
     });
   };
@@ -481,12 +484,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
     }
   };
 
-  const handleDelete = async () => {
-    if (confirm(`Are you sure you want to delete project "${project.name}"? This will also delete all associated time entries.`)) {
-      startTransition(async () => {
-        await deleteProject(project.id);
-      });
-    }
+  const handleDelete = () => {
+    setDeleteDialog({ open: true, project: { id: project.id, name: project.name } });
+  };
+
+  const handleConfirmDelete = async () => {
+    startTransition(async () => {
+      await deleteProject(project.id);
+    });
+    setDeleteDialog({ open: false, project: null });
   };
 
   const handleToggleFavorite = () => {
@@ -516,7 +522,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
       if (result.success) {
         setIsEditDialogOpen(false);
       } else {
-        alert(result.error || 'Failed to update project');
+        toast.error(result.error || 'Failed to update project');
       }
     });
   };
@@ -550,6 +556,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
   }, [highlighted]);
 
   return (
+    <>
     <tr
       ref={rowRef}
       className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60' : ''}`}
@@ -748,6 +755,17 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
         </div>
       </td>
     </tr>
+    <ConfirmDeleteDialog
+      open={deleteDialog.open}
+      onOpenChange={(open) => {
+        if (!open) setDeleteDialog({ open: false, project: null });
+      }}
+      onConfirm={handleConfirmDelete}
+      title="Delete Project"
+      description={`Are you sure you want to delete project "${deleteDialog.project?.name}"? This will also delete all associated time entries.`}
+      confirmLabel="Delete Project"
+    />
+    </>
   );
 };
 

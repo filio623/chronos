@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
+import { toast } from "sonner";
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { InvoiceBlock } from '@/types';
 import { resetInvoiceBlock } from '@/server/actions/invoice-blocks';
@@ -49,7 +50,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
       if (result.success) {
         onOpenChange(false);
       } else {
-        alert(result.error || 'Failed to reset invoice block');
+        toast.error(result.error || 'Failed to reset invoice block');
       }
     });
   };

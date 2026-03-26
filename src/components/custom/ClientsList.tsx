@@ -31,11 +31,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { toast } from "sonner";
 import InvoiceBlockCard from './InvoiceBlockCard';
 import CreateInvoiceBlockDialog from './CreateInvoiceBlockDialog';
 import CreateInvoiceBlockFromWorkDialog from './CreateInvoiceBlockFromWorkDialog';
 import InvoiceBlockHistory from './InvoiceBlockHistory';
 import ColorPicker, { InlineColorPicker } from './ColorPicker';
+import ConfirmDeleteDialog from "@/components/custom/ConfirmDeleteDialog";
 
 interface ClientsListProps {
   clients: Client[];
@@ -68,7 +70,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
         setNewClientName('');
         setNewClientColor('text-indigo-600');
       } else {
-        alert(result.error || 'Failed to create client');
+        toast.error(result.error || 'Failed to create client');
       }
     });
   };
@@ -192,13 +194,17 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editColor, setEditColor] = useState(client.color || 'text-indigo-600');
   const [editDefaultBillable, setEditDefaultBillable] = useState(client.defaultBillable ?? true);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; client: { id: string; name: string } | null }>({ open: false, client: null });
 
   const handleDelete = async () => {
-    if (confirm(`Are you sure you want to delete "${client.name}"? This will also delete all associated projects and invoice blocks.`)) {
-      startTransition(async () => {
-        await deleteClient(client.id);
-      });
-    }
+    setDeleteDialog({ open: true, client: { id: client.id, name: client.name } });
+  };
+
+  const handleConfirmDelete = async () => {
+    startTransition(async () => {
+      await deleteClient(client.id);
+    });
+    setDeleteDialog({ open: false, client: null });
   };
 
   const handleEditClient = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -210,7 +216,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
       if (result.success) {
         setIsEditDialogOpen(false);
       } else {
-        alert(result.error || 'Failed to update client');
+        toast.error(result.error || 'Failed to update client');
       }
     });
   };
@@ -459,6 +465,17 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog({ open: false, client: null });
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Client"
+        description={`Are you sure you want to delete "${deleteDialog.client?.name}"? This will also delete all associated projects and invoice blocks.`}
+        confirmLabel="Delete"
+      />
     </>
   );
 };

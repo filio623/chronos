@@ -1,4 +1,5 @@
 import React, { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { Play, Square, Plus, Loader2, Pause } from 'lucide-react';
 import { Project, Client } from '@/types';
 import { createProject } from '@/server/actions/projects';
@@ -92,7 +93,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
         setNewProjectName('');
         setNewProjectClientId('none');
       } else {
-        alert(result.error || 'Failed to create project');
+        toast.error(result.error || 'Failed to create project');
       }
     });
   };

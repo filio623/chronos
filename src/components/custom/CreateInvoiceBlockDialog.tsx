@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
+import { toast } from "sonner";
 import { Loader2, Target } from 'lucide-react';
 import { createInvoiceBlock } from '@/server/actions/invoice-blocks';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ const CreateInvoiceBlockDialog: React.FC<CreateInvoiceBlockDialogProps> = ({
         setHoursTarget('10');
         setNotes('');
       } else {
-        alert(result.error || 'Failed to create invoice block');
+        toast.error(result.error || 'Failed to create invoice block');
       }
     });
   };

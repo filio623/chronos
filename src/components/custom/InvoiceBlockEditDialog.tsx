@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
+import { toast } from "sonner";
 import { Loader2 } from 'lucide-react';
 import { InvoiceBlock } from '@/types';
 import { updateInvoiceBlock } from '@/server/actions/invoice-blocks';
@@ -43,7 +44,7 @@ const InvoiceBlockEditDialog: React.FC<InvoiceBlockEditDialogProps> = ({
       if (result.success) {
         onOpenChange(false);
       } else {
-        alert(result.error || 'Failed to update invoice block');
+        toast.error(result.error || 'Failed to update invoice block');
       }
     });
   };

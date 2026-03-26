@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from 'react';
+import { toast } from "sonner";
 import { Check, Plus, Loader2, Tag as TagIcon } from 'lucide-react';
 import { Tag } from '@/types';
 import { createTag } from '@/server/actions/tags';
@@ -68,7 +69,7 @@ const TagPicker: React.FC<TagPickerProps> = ({
         setNewTagName('');
         setIsCreating(false);
       } else {
-        alert(result.error || 'Failed to create tag');
+        toast.error(result.error || 'Failed to create tag');
       }
     });
   };

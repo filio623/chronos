@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Loader2, Target } from "lucide-react";
 import { createInvoiceBlockFromWork, getInvoiceBlockWorkOptions } from "@/server/actions/invoice-blocks";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ const CreateInvoiceBlockFromWorkDialog: React.FC<CreateInvoiceBlockFromWorkDialo
       setOptions(result.data as WorkOptionsData);
     } else {
       setOptions(null);
-      alert(result.error || "Failed to load client work options");
+      toast.error(result.error || "Failed to load client work options");
     }
 
     setIsLoading(false);
@@ -164,7 +165,7 @@ const CreateInvoiceBlockFromWorkDialog: React.FC<CreateInvoiceBlockFromWorkDialo
 
   const handleCreate = () => {
     if (selectedEntryIds.size === 0 && selectedProjectIds.size === 0) {
-      alert("Select at least one entry or project");
+      toast.error("Select at least one entry or project");
       return;
     }
 
@@ -179,7 +180,7 @@ const CreateInvoiceBlockFromWorkDialog: React.FC<CreateInvoiceBlockFromWorkDialo
       });
 
       if (!result.success) {
-        alert(result.error || "Failed to create invoice block from selected work");
+        toast.error(result.error || "Failed to create invoice block from selected work");
         return;
       }
 

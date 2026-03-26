@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useTransition } from 'react';
+import { toast } from "sonner";
 import { TimeEntry, Project, Tag } from '@/types';
 import { Play, DollarSign, MoreVertical, Calendar, Trash2, Loader2 } from 'lucide-react';
+import ConfirmDeleteDialog from "@/components/custom/ConfirmDeleteDialog";
 import { formatLocalTime } from '@/lib/time';
 import {
   DropdownMenu,
@@ -28,6 +30,7 @@ interface TimeEntryRowProps {
 
 const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTags, onRestart }) => {
   const [isPending, startTransition] = useTransition();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [localBillable, setLocalBillable] = useState(entry.isBillable);
   const [rateOpen, setRateOpen] = useState(false);
@@ -56,12 +59,15 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
     setRateInput(baseRate !== null ? String(baseRate) : '');
   }, [rateOpen, entry.rateOverride, entry.effectiveRate]);
 
-  const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this time entry?")) {
-      startTransition(async () => {
-        await deleteTimeEntry(entry.id);
-      });
-    }
+  const handleDelete = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setShowDeleteDialog(false);
+    startTransition(async () => {
+      await deleteTimeEntry(entry.id);
+    });
   };
 
   const handleBillableToggle = () => {
@@ -274,6 +280,13 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
             </DropdownMenu>
         </div>
       </div>
+
+      <ConfirmDeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        description="Are you sure you want to delete this time entry?"
+      />
     </div>
   );
 };

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { formatLocalTime, getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
+import { toast } from "sonner";
 
 interface TimesheetViewProps {
   projects: Project[];
@@ -116,7 +117,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     startTransition(async () => {
       const result = await createProject(formData);
       if (!result.success) {
-        alert(result.error || 'Failed to create project');
+        toast.error(result.error || 'Failed to create project');
         return;
       }
       if (result.data?.id) {
@@ -143,7 +144,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     startTransition(async () => {
       const result = await createClient(formData);
       if (!result.success) {
-        alert(result.error || 'Failed to create client');
+        toast.error(result.error || 'Failed to create client');
         return;
       }
       if (result.data?.id) {
@@ -305,7 +306,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
     if (manualMode === 'range') {
       if (!entryStartTime || !entryEndTime) {
-        alert("Please enter a start and end time.");
+        toast.error("Please enter a start and end time.");
         return;
       }
       startTime = buildDateTime(entryDate, entryStartTime);
@@ -315,7 +316,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
       const minutes = Math.max(0, parseInt(entryMinutes || '0', 10));
       const totalMinutes = hours * 60 + minutes;
       if (totalMinutes <= 0) {
-        alert("Please enter a duration greater than 0.");
+        toast.error("Please enter a duration greater than 0.");
         return;
       }
       const start = entryStartTime ? buildDateTime(entryDate, entryStartTime) : buildDateTime(entryDate, '00:00');
@@ -324,7 +325,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     }
 
     if (endTime <= startTime) {
-      alert("End time must be after start time.");
+      toast.error("End time must be after start time.");
       return;
     }
 
@@ -340,7 +341,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
       });
 
       if (!result.success) {
-        alert(result.error || "Failed to log entry");
+        toast.error(result.error || "Failed to log entry");
         return;
       }
 

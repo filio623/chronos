@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { TimeEntry, Project, Client, Tag } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
 import { Plus, Loader2 } from 'lucide-react';
@@ -137,7 +138,7 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
         setBillableTouched(false);
         e.currentTarget.reset();
       } else {
-        alert(result.error || 'Failed to log entry');
+        toast.error(result.error || 'Failed to log entry');
       }
     });
   };
