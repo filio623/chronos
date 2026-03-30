@@ -1,7 +1,8 @@
 import ProjectsList from "@/components/custom/ProjectsList";
 import { getProjects } from "@/server/data/projects";
 import { getClientsWithData } from "@/server/data/clients";
-import { mapProject, mapClient } from "@/lib/mappers";
+import { getActiveTimer } from "@/server/data/time-entries";
+import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
 
 export default async function ProjectsPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -20,18 +21,26 @@ export default async function ProjectsPage(props: {
 
   const highlightedProjectId = typeof searchParams?.highlight === 'string' ? searchParams.highlight : null;
 
-  const [projectsData, clientsData] = await Promise.all([
+  const [projectsData, clientsData, activeTimerData] = await Promise.all([
     getProjects(projectFilters),
     getClientsWithData(),
+    getActiveTimer(),
   ]);
 
   const projects = projectsData.projects.map(mapProject);
   const clients = clientsData.map(mapClient);
 
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+  const clientMap = new Map(clients.map(c => [c.id, c]));
+  const activeTimer = activeTimerData
+    ? mapEntry(activeTimerData, projectMap, clientMap)
+    : null;
+
   return (
     <ProjectsList
       projects={projects}
       clients={clients}
+      activeTimer={activeTimer}
       totalCount={projectsData.totalCount}
       highlightedProjectId={highlightedProjectId}
     />

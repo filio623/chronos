@@ -220,6 +220,7 @@ export async function startTimer(projectId: string | null, description: string) 
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     revalidatePath("/reports");
@@ -263,6 +264,7 @@ export async function stopTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     revalidatePath("/reports");
@@ -316,6 +318,7 @@ export async function logManualTimeEntry(data: {
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     revalidatePath("/reports");
@@ -337,6 +340,7 @@ export async function deleteTimeEntry(id: string) {
       where: { id: parsed.data }
     });
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     revalidatePath("/reports");
@@ -419,6 +423,7 @@ export async function updateTimeEntry(id: string, data: {
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     revalidatePath("/reports");
@@ -449,6 +454,7 @@ export async function pauseTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     return { success: true };
@@ -486,6 +492,7 @@ export async function resumeTimer(id: string) {
     });
 
     revalidatePath("/");
+    revalidatePath("/projects");
     revalidatePath("/tracker");
     revalidatePath("/timesheet");
     return { success: true };

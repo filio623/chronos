@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 - Invoice block work assignment tools: you can now add specific past entries and selected projects to an active invoice block, with project links continuing to auto-capture future entries for those projects.
 - New “Create Block from Work” flow for clients without an active block, including multi-select entry/project grouping and auto-filled target hours based on selected work.
 - Invoice block lifecycle status controls in history, allowing completed blocks to be manually marked as submitted or paid.
+- Project rows now include direct timer controls so you can start a tracking session from the projects list without switching views.
 
 ### Changed
 - Dashboard Recent Activity now live-updates the duration shown for the currently running timer entry, so elapsed time advances in-row alongside `Running...`.

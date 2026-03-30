@@ -16,11 +16,14 @@ import {
   Archive,
   ArchiveRestore,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Play,
+  Square
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Project, Client } from '@/types';
+import { Project, Client, TimeEntry } from '@/types';
 import { createProject, deleteProject, updateProject, toggleFavorite, archiveProject, unarchiveProject } from '@/server/actions/projects';
+import { startTimer, stopTimer } from '@/server/actions/time-entries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,6 +56,7 @@ import ConfirmDeleteDialog from "@/components/custom/ConfirmDeleteDialog";
 interface ProjectsListProps {
   projects: Project[];
   clients: Client[];
+  activeTimer: TimeEntry | null;
   totalCount?: number;
   highlightedProjectId?: string | null;
 }
@@ -60,7 +64,7 @@ interface ProjectsListProps {
 type SortColumn = 'name' | 'client' | 'hoursUsed' | 'updatedAt';
 type SortOrder = 'asc' | 'desc';
 
-const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCount = projects.length, highlightedProjectId }) => {
+const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTimer, totalCount = projects.length, highlightedProjectId }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -321,6 +325,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
                 <th className="px-4 py-3">Rate</th>
                 <th className="px-4 py-3">Progress</th>
                 <th className="px-4 py-3">Access</th>
+                <th className="px-4 py-3">Timer</th>
                 <th className="px-4 py-3 w-16 text-right"></th>
               </tr>
             </thead>
@@ -330,6 +335,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, totalCou
                   key={project.id}
                   project={project}
                   clients={clients}
+                  activeTimer={activeTimer}
                   highlighted={highlightedProjectId === project.id}
                 />
               ))}
@@ -415,11 +421,14 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ label, column, currentS
 interface ProjectRowProps {
   project: Project;
   clients: Client[];
+  activeTimer: TimeEntry | null;
   highlighted?: boolean;
 }
 
-const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted = false }) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, highlighted = false }) => {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isTimerActionPending, setIsTimerActionPending] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(project.hoursTotal.toString());
@@ -533,6 +542,29 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
   const client = clients.find(c => c.id === project.clientId);
   const effectiveRate = project.hourlyRate ?? client?.defaultRate ?? null;
   const rowRef = useRef<HTMLTableRowElement>(null);
+  const isProjectTimerActive = activeTimer?.projectId === project.id;
+  const isProjectTimerPaused = isProjectTimerActive && !!activeTimer?.pausedAtISO;
+
+  const handleTimerAction = () => {
+    setIsTimerActionPending(true);
+
+    startTransition(async () => {
+      try {
+        const result = isProjectTimerActive && activeTimer
+          ? await stopTimer(activeTimer.id)
+          : await startTimer(project.id, '');
+
+        if (!result.success) {
+          toast.error(result.error || (isProjectTimerActive ? 'Failed to stop timer' : 'Failed to start timer'));
+          return;
+        }
+
+        router.refresh();
+      } finally {
+        setIsTimerActionPending(false);
+      }
+    });
+  };
 
   useEffect(() => {
     if (highlighted && rowRef.current) {
@@ -603,6 +635,34 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, highlighted =
         )}
       </td>
       <td className="px-4 py-3 text-slate-500">{project.access || 'Public'}</td>
+      <td className="px-4 py-3">
+        <Button
+          type="button"
+          variant={isProjectTimerActive ? 'destructive' : 'outline'}
+          size="sm"
+          onClick={handleTimerAction}
+          disabled={isPending || isTimerActionPending}
+          className={isProjectTimerActive ? 'min-w-[112px]' : 'min-w-[112px] border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800'}
+          title={
+            isProjectTimerActive
+              ? isProjectTimerPaused
+                ? 'Stop paused timer for this project'
+                : 'Stop running timer for this project'
+              : activeTimer
+                ? 'Stop the current timer and start tracking this project'
+                : 'Start tracking this project'
+          }
+        >
+          {isTimerActionPending ? (
+            <Loader2 size={14} className="mr-2 animate-spin" />
+          ) : isProjectTimerActive ? (
+            <Square size={14} className="mr-2" />
+          ) : (
+            <Play size={14} className="mr-2" />
+          )}
+          {isProjectTimerActive ? (isProjectTimerPaused ? 'Stop paused' : 'Stop') : 'Start'}
+        </Button>
+      </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
