@@ -1,5 +1,5 @@
 import ProjectsList from "@/components/custom/ProjectsList";
-import { getProjects } from "@/server/data/projects";
+import { getProjects, type ProjectWithHours } from "@/server/data/projects";
 import { getClientsWithData } from "@/server/data/clients";
 import { getActiveTimer } from "@/server/data/time-entries";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
@@ -35,19 +35,15 @@ export default async function ProjectsPage(props: {
 
   const timerProject = activeTimerData?.project;
   if (timerProject && !projectMap.has(timerProject.id)) {
-    projectMap.set(timerProject.id, {
-      id: timerProject.id,
-      name: timerProject.name,
-      client: timerProject.client?.name || "No Client",
-      clientId: timerProject.clientId,
-      color: timerProject.color,
+    const timerProjectWithHours: ProjectWithHours = {
+      ...timerProject,
+      client: timerProject.client
+        ? { id: timerProject.client.id, name: timerProject.client.name }
+        : null,
       hoursUsed: 0,
-      hoursTotal: timerProject.budgetLimit,
-      isFavorite: timerProject.isFavorite,
-      isArchived: timerProject.isArchived,
-      defaultBillable: timerProject.defaultBillable,
-      hourlyRate: timerProject.hourlyRate,
-    });
+    };
+
+    projectMap.set(timerProject.id, mapProject(timerProjectWithHours));
   }
 
   const activeTimer = activeTimerData
