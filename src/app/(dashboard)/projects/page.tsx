@@ -32,6 +32,24 @@ export default async function ProjectsPage(props: {
 
   const projectMap = new Map(projects.map(p => [p.id, p]));
   const clientMap = new Map(clients.map(c => [c.id, c]));
+
+  const timerProject = activeTimerData?.project;
+  if (timerProject && !projectMap.has(timerProject.id)) {
+    projectMap.set(timerProject.id, {
+      id: timerProject.id,
+      name: timerProject.name,
+      client: timerProject.client?.name || "No Client",
+      clientId: timerProject.clientId,
+      color: timerProject.color,
+      hoursUsed: 0,
+      hoursTotal: timerProject.budgetLimit,
+      isFavorite: timerProject.isFavorite,
+      isArchived: timerProject.isArchived,
+      defaultBillable: timerProject.defaultBillable,
+      hourlyRate: timerProject.hourlyRate,
+    });
+  }
+
   const activeTimer = activeTimerData
     ? mapEntry(activeTimerData, projectMap, clientMap)
     : null;
