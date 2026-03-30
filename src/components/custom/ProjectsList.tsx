@@ -642,7 +642,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
           size="sm"
           onClick={handleTimerAction}
           disabled={isPending || isTimerActionPending}
-          className={isProjectTimerActive ? 'min-w-[112px]' : 'min-w-[112px] border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800'}
+          className={`min-w-[112px] ${isProjectTimerActive ? '' : 'border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800'}`}
           title={
             isProjectTimerActive
               ? isProjectTimerPaused
