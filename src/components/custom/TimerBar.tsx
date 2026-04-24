@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDuration } from '@/lib/time';
 
 interface TimerBarProps {
   projects: Project[];
@@ -53,14 +54,6 @@ const TimerBar: React.FC<TimerBarProps> = ({
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectClientId, setNewProjectClientId] = useState<string | 'none'>('none');
   const [isPending, startTransition] = useTransition();
-
-  // Format seconds to HH:MM:SS
-  const formatTime = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
 
   const handleStart = () => {
     const pId = selectedProjectId === 'none' ? null : selectedProjectId;
@@ -104,7 +97,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
         <div className="flex items-center justify-between max-w-5xl mx-auto">
           <div className="flex items-center gap-4">
             <span className="font-mono text-2xl font-medium text-indigo-600 tracking-tight">
-              {formatTime(elapsedSeconds)}
+              {formatDuration(elapsedSeconds)}
             </span>
             <div className="h-8 w-px bg-slate-200"></div>
             <div className="flex flex-col justify-center">

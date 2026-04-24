@@ -7,6 +7,8 @@ import Sidebar from '@/components/custom/Sidebar';
 import TimerBar from '@/components/custom/TimerBar';
 import { Project, TimeEntry, Client } from '@/types';
 import { startTimer, stopTimer, pauseTimer, resumeTimer } from '@/server/actions/time-entries';
+import { elapsed as elapsedSecondsForTimer, TimerCalculator, type TimerLike } from '@/lib/timer-calculator';
+import { formatDuration, formatBrowserTitle } from '@/lib/time';
 
 interface AppShellProps {
   initialProjects: Project[];
@@ -15,36 +17,21 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-// Helper to calculate elapsed seconds from a timer's start time
+function toTimerLike(timer: TimeEntry): TimerLike {
+  return {
+    startTime: timer.startTimeISO || timer.startTime,
+    endTime: null,
+    pausedAt: timer.pausedAtISO ?? null,
+    pausedSeconds: timer.pausedSeconds ?? 0,
+  };
+}
+
 function calculateElapsedSeconds(timer: TimeEntry | null): number {
   if (!timer) return 0;
-  const startStr = timer.startTimeISO || timer.startTime;
-  const start = new Date(startStr).getTime();
-  if (isNaN(start)) return 0;
-  const pausedSeconds = timer.pausedSeconds ?? 0;
-  const pausedAtStr = timer.pausedAtISO || null;
-  if (pausedAtStr) {
-    const pausedAtMs = new Date(pausedAtStr).getTime();
-    if (!isNaN(pausedAtMs)) {
-      return Math.max(0, Math.floor((pausedAtMs - start) / 1000) - pausedSeconds);
-    }
-  }
-  const endMs = Date.now();
-  return Math.max(0, Math.floor((endMs - start) / 1000) - pausedSeconds);
+  return elapsedSecondsForTimer(toTimerLike(timer));
 }
 
-export function formatElapsedDuration(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function formatTitleTime(totalSeconds: number): string {
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
+export const formatElapsedDuration = formatDuration;
 
 // Map pathname to view name for sidebar highlighting
 function pathnameToView(pathname: string): string {
@@ -139,9 +126,9 @@ export default function AppShell({
   // Browser tab title effect
   useEffect(() => {
     if (isRunning) {
-      document.title = `${formatTitleTime(elapsedSeconds)} - Chronos`;
+      document.title = `${formatBrowserTitle(elapsedSeconds)} - Chronos`;
     } else if (isPaused) {
-      document.title = `Paused • ${formatTitleTime(elapsedSeconds)} - Chronos`;
+      document.title = `Paused • ${formatBrowserTitle(elapsedSeconds)} - Chronos`;
     } else {
       document.title = 'Chronos';
     }
@@ -168,7 +155,7 @@ export default function AppShell({
 
   const handlePauseTimer = async () => {
     if (!activeTimer) return;
-    setElapsedSeconds(calculateElapsedSeconds(activeTimer));
+    setElapsedSeconds(TimerCalculator.elapsedAt(toTimerLike(activeTimer), new Date()));
     startTransition(async () => {
       setOptimisticTimerState({ type: 'pause' });
       await pauseTimer(activeTimer.id);

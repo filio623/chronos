@@ -1,25 +1,18 @@
 import prisma from "@/lib/prisma";
-import { Client, InvoiceBlockStatus } from "@prisma/client";
-import { getActiveInvoiceBlock, getClientHoursTracked, InvoiceBlockWithHours } from "./invoice-blocks";
+import { Client } from "@prisma/client";
+import { getClientHoursSnapshots, type EnrichedBlock } from "./block-hours-calculator";
 
-// Type for client with computed data
 export type ClientWithData = Client & {
   hoursTracked: number;
-  activeInvoiceBlock: InvoiceBlockWithHours | null;
+  activeInvoiceBlock: EnrichedBlock | null;
   _count?: { projects: number };
 };
 
 export async function getClients(): Promise<Client[]> {
   try {
     const clients = await prisma.client.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-      include: {
-        _count: {
-          select: { projects: true }
-        }
-      }
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { projects: true } } },
     });
     return clients;
   } catch (error) {
@@ -29,69 +22,48 @@ export async function getClients(): Promise<Client[]> {
 }
 
 /**
- * Get clients with computed hours and active invoice blocks
+ * Get clients with computed hours and active invoice blocks.
+ * Bounded query budget regardless of client count.
  */
 export async function getClientsWithData(): Promise<ClientWithData[]> {
   try {
     const clients = await prisma.client.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-      include: {
-        _count: {
-          select: { projects: true }
-        }
-      }
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { projects: true } } },
     });
 
-    // Fetch hours and active blocks for each client
-    const clientsWithData = await Promise.all(
-      clients.map(async (client) => {
-        const [hoursTracked, activeInvoiceBlock] = await Promise.all([
-          getClientHoursTracked(client.id),
-          getActiveInvoiceBlock(client.id),
-        ]);
+    if (clients.length === 0) return [];
 
-        return {
-          ...client,
-          hoursTracked,
-          activeInvoiceBlock,
-        };
-      })
-    );
+    const snapshots = await getClientHoursSnapshots(clients.map(c => c.id));
 
-    return clientsWithData;
+    return clients.map(client => {
+      const snap = snapshots.get(client.id)!;
+      return {
+        ...client,
+        hoursTracked: snap.totalHoursTracked,
+        activeInvoiceBlock: snap.activeBlock,
+      };
+    });
   } catch (error) {
     console.error("Failed to fetch clients with data:", error);
     return [];
   }
 }
 
-/**
- * Get a single client by ID with computed data
- */
 export async function getClientById(id: string): Promise<ClientWithData | null> {
   try {
     const client = await prisma.client.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: { projects: true }
-        }
-      }
+      include: { _count: { select: { projects: true } } },
     });
-
     if (!client) return null;
 
-    const [hoursTracked, activeInvoiceBlock] = await Promise.all([
-      getClientHoursTracked(client.id),
-      getActiveInvoiceBlock(client.id),
-    ]);
+    const snap = (await getClientHoursSnapshots([id])).get(id)!;
 
     return {
       ...client,
-      hoursTracked,
-      activeInvoiceBlock,
+      hoursTracked: snap.totalHoursTracked,
+      activeInvoiceBlock: snap.activeBlock,
     };
   } catch (error) {
     console.error(`Failed to fetch client ${id}:`, error);

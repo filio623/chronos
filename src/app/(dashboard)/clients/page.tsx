@@ -1,6 +1,7 @@
+import prisma from "@/lib/prisma";
 import ClientsList from "@/components/custom/ClientsList";
-import { getClientsWithData } from "@/server/data/clients";
-import { getInvoiceBlockHistoryBatched } from "@/server/data/invoice-blocks";
+import { getClientHoursSnapshots } from "@/server/data/block-hours-calculator";
+import type { ClientWithData } from "@/server/data/clients";
 import { InvoiceBlock } from "@/types";
 import { mapClient, mapInvoiceBlock } from "@/lib/mappers";
 
@@ -10,17 +11,28 @@ export default async function ClientsPage(props: {
   const searchParams = await props.searchParams;
   const highlightedClientId = typeof searchParams?.highlight === 'string' ? searchParams.highlight : null;
 
-  const [clientsData, invoiceBlockHistoryRaw] = await Promise.all([
-    getClientsWithData(),
-    getInvoiceBlockHistoryBatched(),
-  ]);
+  const clientRows = await prisma.client.findMany({
+    orderBy: { name: 'asc' },
+    include: { _count: { select: { projects: true } } },
+  });
+
+  const snapshots = await getClientHoursSnapshots(clientRows.map(c => c.id));
+
+  const clientsData: ClientWithData[] = clientRows.map(client => {
+    const snap = snapshots.get(client.id)!;
+    return {
+      ...client,
+      hoursTracked: snap.totalHoursTracked,
+      activeInvoiceBlock: snap.activeBlock,
+    };
+  });
 
   const clients = clientsData.map(mapClient);
 
-  // Map Prisma invoice blocks to UI types
   const invoiceBlockHistory: Record<string, InvoiceBlock[]> = {};
-  for (const [clientId, blocks] of Object.entries(invoiceBlockHistoryRaw)) {
-    invoiceBlockHistory[clientId] = blocks.map(mapInvoiceBlock);
+  for (const client of clientsData) {
+    const snap = snapshots.get(client.id)!;
+    invoiceBlockHistory[client.id] = snap.blockHistory.map(mapInvoiceBlock);
   }
 
   return (
