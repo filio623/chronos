@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { InvoiceBlockStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { calculateBlockHours } from "@/server/data/invoice-blocks";
+import { getBlockHours } from "@/server/data/block-hours-calculator";
 
 const createBlockSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
@@ -571,7 +571,7 @@ export async function resetInvoiceBlock(
       return { success: false, error: "Invoice block is not active" };
     }
 
-    const blockHours = await calculateBlockHours(block.id);
+    const blockHours = await getBlockHours(block.id);
 
     const effectiveTracked = blockHours + block.hoursCarriedForward;
     const overage = Math.max(0, effectiveTracked - block.hoursTarget);

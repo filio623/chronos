@@ -1,6 +1,14 @@
 import prisma from "@/lib/prisma";
 import { format } from "date-fns";
 import { Prisma } from "@prisma/client";
+import {
+  type ReportFilter,
+  entryFilterSql,
+  entryFilterWhere,
+  reportJoinsSql,
+  billableAmountSql,
+  hoursSumSql,
+} from "./report-fragments";
 
 export type ReportFilters = {
   projectId?: string;
@@ -14,65 +22,38 @@ function toNumber(value: number | bigint | Prisma.Decimal): number {
   return Number(value);
 }
 
-async function buildEntryWhere(startDate: Date, endDate: Date, filters?: ReportFilters) {
-  const where: Prisma.TimeEntryWhereInput = {
-    startTime: { gte: startDate, lte: endDate },
-    endTime: { not: null },
+function toFilter(startDate: Date, endDate: Date, filters?: ReportFilters, isBillable?: boolean): ReportFilter {
+  return {
+    startDate,
+    endDate,
+    projectId: filters?.projectId ?? null,
+    clientId: filters?.clientId ?? null,
+    isBillable,
   };
-
-  if (filters?.projectId) {
-    where.projectId = filters.projectId;
-    return where;
-  }
-
-  if (filters?.clientId) {
-    const projectIds = await prisma.project.findMany({
-      where: { clientId: filters.clientId },
-      select: { id: true },
-    });
-
-    const ids = projectIds.map(p => p.id);
-    where.OR = [
-      { clientId: filters.clientId },
-      ...(ids.length > 0 ? [{ projectId: { in: ids } }] : []),
-    ];
-  }
-
-  return where;
 }
 
 export async function getSummaryMetrics(startDate: Date, endDate: Date, filters?: ReportFilters) {
-  const where = await buildEntryWhere(startDate, endDate, filters);
-  const filterProject = filters?.projectId;
-  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
-  // Use Prisma aggregate instead of fetching all records
+  const baseFilter = toFilter(startDate, endDate, filters);
+  const where = entryFilterWhere(baseFilter);
+
   const [totalAgg, billableAgg] = await Promise.all([
     prisma.timeEntry.aggregate({
       where,
       _sum: { duration: true },
     }),
     prisma.timeEntry.aggregate({
-      where: {
-        ...where,
-        isBillable: true,
-      },
+      where: { ...where, isBillable: true },
       _sum: { duration: true },
     }),
   ]);
 
+  const billableFilter = toFilter(startDate, endDate, filters, true);
   const amountRows = await prisma.$queryRaw<{ total_amount: number | Prisma.Decimal }[]>(
     Prisma.sql`
-      SELECT
-        COALESCE(SUM((t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)), 0) AS total_amount
+      SELECT COALESCE(SUM(${billableAmountSql()}), 0) AS total_amount
       FROM "TimeEntry" t
-      LEFT JOIN "Project" p ON p.id = t."projectId"
-      LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
-      WHERE t."startTime" >= ${startDate}
-        AND t."startTime" <= ${endDate}
-        AND t."endTime" IS NOT NULL
-        AND t."isBillable" = true
-        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
-        ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
+      ${reportJoinsSql()}
+      WHERE ${entryFilterSql(billableFilter, "joined")}
     `
   );
 
@@ -86,33 +67,25 @@ export async function getSummaryMetrics(startDate: Date, endDate: Date, filters?
 }
 
 export async function getDailyActivity(startDate: Date, endDate: Date, filters?: ReportFilters) {
-  const filterProject = filters?.projectId;
-  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+  const filter = toFilter(startDate, endDate, filters);
 
-  // Use Prisma groupBy for daily aggregation
   const dailyEntries = await prisma.$queryRaw<{ day: string; total_seconds: bigint }[]>(
     Prisma.sql`
       SELECT
         TO_CHAR("startTime", 'YYYY-MM-DD') as day,
         COALESCE(SUM(duration), 0) as total_seconds
       FROM "TimeEntry"
-      WHERE "startTime" >= ${startDate}
-        AND "startTime" <= ${endDate}
-        AND "endTime" IS NOT NULL
-        ${filterProject ? Prisma.sql`AND "projectId" = ${filterProject}` : Prisma.empty}
-        ${filterClient ? Prisma.sql`AND ("clientId" = ${filterClient} OR "projectId" IN (SELECT id FROM "Project" WHERE "clientId" = ${filterClient}))` : Prisma.empty}
+      WHERE ${entryFilterSql(filter, "single")}
       GROUP BY TO_CHAR("startTime", 'YYYY-MM-DD')
       ORDER BY day
     `
   );
 
-  // Create a map from database results
   const dbMap = new Map<string, number>();
   dailyEntries.forEach((entry) => {
     dbMap.set(entry.day, Number(entry.total_seconds));
   });
 
-  // Initialize map with all days in range
   const result: { date: string; hours: number }[] = [];
   const current = new Date(startDate);
   while (current <= endDate) {
@@ -129,8 +102,7 @@ export async function getDailyActivity(startDate: Date, endDate: Date, filters?:
 }
 
 export async function getDailyActivityGrouped(startDate: Date, endDate: Date, filters?: ReportFilters) {
-  const filterProject = filters?.projectId;
-  const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+  const filter = toFilter(startDate, endDate, filters);
   const groupBy = filters?.groupBy === 'client' ? 'client' : 'project';
 
   if (groupBy === 'client') {
@@ -140,16 +112,10 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
           TO_CHAR(t."startTime", 'YYYY-MM-DD') as day,
           c.name as name,
           c.color as color,
-          COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+          ${hoursSumSql()} as hours
         FROM "TimeEntry" t
-        LEFT JOIN "Project" p ON p.id = t."projectId"
-        LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
-        WHERE t."startTime" >= ${startDate}
-          AND t."startTime" <= ${endDate}
-          AND t."endTime" IS NOT NULL
-          ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
-          ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
-          AND c.id IS NOT NULL
+        ${reportJoinsSql()}
+        WHERE ${entryFilterSql(filter, "joined")} AND c.id IS NOT NULL
         GROUP BY day, c.id, c.name, c.color
         ORDER BY day
       `
@@ -167,16 +133,10 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
         p.name as name,
         p.color as color,
         c.name as client_name,
-        COALESCE(SUM(t.duration), 0) / 3600.0 as hours
+        ${hoursSumSql()} as hours
       FROM "TimeEntry" t
-      LEFT JOIN "Project" p ON p.id = t."projectId"
-      LEFT JOIN "Client" c ON c.id = p."clientId"
-      WHERE t."startTime" >= ${startDate}
-        AND t."startTime" <= ${endDate}
-        AND t."endTime" IS NOT NULL
-        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
-        ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
-        AND p.id IS NOT NULL
+      ${reportJoinsSql()}
+      WHERE ${entryFilterSql(filter, "joined")} AND p.id IS NOT NULL
       GROUP BY day, p.id, p.name, p.color, c.name
       ORDER BY day
     `
@@ -189,8 +149,7 @@ export async function getDailyActivityGrouped(startDate: Date, endDate: Date, fi
 
 export async function getProjectDistribution(startDate: Date, endDate: Date, filters?: ReportFilters) {
   if (filters?.groupBy === 'client') {
-    const filterProject = filters?.projectId;
-    const filterClient = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+    const filter = toFilter(startDate, endDate, filters);
 
     const clientHours = await prisma.$queryRaw<{ client_id: string; name: string; color: string; hours: number | Prisma.Decimal; amount: number | Prisma.Decimal }[]>(
       Prisma.sql`
@@ -198,19 +157,11 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
           c.id as client_id,
           c.name as name,
           c.color as color,
-          COALESCE(SUM(t.duration), 0) / 3600.0 as hours,
-          COALESCE(SUM(
-            (t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)
-          ), 0) as amount
+          ${hoursSumSql()} as hours,
+          COALESCE(SUM(${billableAmountSql()}), 0) as amount
         FROM "TimeEntry" t
-        LEFT JOIN "Project" p ON p.id = t."projectId"
-        LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
-        WHERE t."startTime" >= ${startDate}
-          AND t."startTime" <= ${endDate}
-          AND t."endTime" IS NOT NULL
-          ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
-          ${filterClient ? Prisma.sql`AND (t."clientId" = ${filterClient} OR p."clientId" = ${filterClient})` : Prisma.empty}
-          AND c.id IS NOT NULL
+        ${reportJoinsSql()}
+        WHERE ${entryFilterSql(filter, "joined")} AND c.id IS NOT NULL
         GROUP BY c.id, c.name, c.color
         ORDER BY hours DESC
       `
@@ -233,8 +184,7 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
     }));
   }
 
-  const filterProject = filters?.projectId;
-  const filterClient2 = filters?.clientId && !filters?.projectId ? filters.clientId : null;
+  const filter = toFilter(startDate, endDate, filters);
 
   const projectDistribution = await prisma.$queryRaw<{
     project_id: string;
@@ -250,19 +200,12 @@ export async function getProjectDistribution(startDate: Date, endDate: Date, fil
         p.name as name,
         p.color as color,
         c.name as client_name,
-        COALESCE(SUM(t.duration), 0) / 3600.0 as hours,
-        COALESCE(SUM(
-          (t.duration / 3600.0) * COALESCE(t."rateOverride", p."hourlyRate", c."defaultRate", 0)
-        ), 0) as amount
+        ${hoursSumSql()} as hours,
+        COALESCE(SUM(${billableAmountSql()}), 0) as amount
       FROM "TimeEntry" t
       JOIN "Project" p ON p.id = t."projectId"
       LEFT JOIN "Client" c ON c.id = COALESCE(t."clientId", p."clientId")
-      WHERE t."startTime" >= ${startDate}
-        AND t."startTime" <= ${endDate}
-        AND t."endTime" IS NOT NULL
-        AND t."projectId" IS NOT NULL
-        ${filterProject ? Prisma.sql`AND t."projectId" = ${filterProject}` : Prisma.empty}
-        ${filterClient2 ? Prisma.sql`AND (t."clientId" = ${filterClient2} OR p."clientId" = ${filterClient2})` : Prisma.empty}
+      WHERE ${entryFilterSql(filter, "joined")}
       GROUP BY p.id, p.name, p.color, c.name
       HAVING COALESCE(SUM(t.duration), 0) > 0
       ORDER BY hours DESC

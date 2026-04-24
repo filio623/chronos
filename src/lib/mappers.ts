@@ -4,6 +4,8 @@ import { ClientWithData } from "@/server/data/clients";
 import { TimeEntryWithRelations } from "@/server/data/time-entries";
 import { TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
 import { InvoiceBlockWithHours } from "@/server/data/invoice-blocks";
+import { elapsed as elapsedSecondsForTimer } from "@/lib/timer-calculator";
+import { formatDuration } from "@/lib/time";
 
 export const mapProject = (p: ProjectWithHours): Project => ({
   id: p.id,
@@ -53,16 +55,13 @@ export const mapEntry = (
   const pausedSeconds = e.pausedSeconds ?? 0;
   const pausedAt = e.pausedAt ?? null;
   const isPaused = !e.endTime && !!pausedAt;
-  const effectiveEnd = e.endTime
-    ? e.endTime.getTime()
-    : pausedAt
-      ? pausedAt.getTime()
-      : Date.now();
-  const computedSeconds = Math.floor((effectiveEnd - e.startTime.getTime()) / 1000) - pausedSeconds;
-  const durationSeconds = e.duration ?? Math.max(0, computedSeconds);
-  const hours = Math.floor(durationSeconds / 3600);
-  const minutes = Math.floor((durationSeconds % 3600) / 60);
-  const seconds = durationSeconds % 60;
+  const durationSeconds = elapsedSecondsForTimer({
+    startTime: e.startTime,
+    endTime: e.endTime,
+    pausedAt,
+    pausedSeconds,
+    duration: e.duration ?? null,
+  });
   const entryRateOverride = (e as PrismaTimeEntry & { rateOverride?: number | null }).rateOverride ?? null;
   const project = projectMap.get(e.projectId || '');
   const clientId = e.clientId ?? project?.clientId ?? null;
@@ -94,7 +93,7 @@ export const mapEntry = (
     pausedSeconds,
     isPaused,
     endTime: e.endTime ? e.endTime.toISOString() : isPaused ? "Paused" : "Running...",
-    duration: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
+    duration: formatDuration(durationSeconds),
     durationSeconds,
     isBillable: e.isBillable,
     rateOverride: entryRateOverride,

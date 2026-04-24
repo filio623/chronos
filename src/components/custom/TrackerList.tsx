@@ -23,7 +23,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { logManualTimeEntry } from '@/server/actions/time-entries';
-import { getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
+import { getLocalDateKey, parseDateKeyToLocalDate, formatDuration } from '@/lib/time';
+import { resolveDefaultBillableClient } from '@/lib/billable/resolve-client';
 
 interface TrackerListProps {
   entries: TimeEntry[];
@@ -79,26 +80,11 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  // Calculate total duration for a group
-  const formatTotalDuration = (entries: TimeEntry[]) => {
-    const totalSeconds = entries.reduce((acc, curr) => acc + (curr.durationSeconds || 0), 0);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatTotalDuration = (entries: TimeEntry[]) =>
+    formatDuration(entries.reduce((acc, curr) => acc + (curr.durationSeconds || 0), 0));
 
-  const getDefaultBillable = (projectId: string) => {
-    if (projectId === 'none') return true;
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return true;
-    if (project.defaultBillable !== null && project.defaultBillable !== undefined) {
-      return project.defaultBillable;
-    }
-    const client = clients.find(c => c.id === project.clientId);
-    if (client?.defaultBillable !== undefined) return client.defaultBillable;
-    return true;
-  };
+  const getDefaultBillable = (projectId: string) =>
+    resolveDefaultBillableClient({ projectId, clientId: null, projects, clients });
 
   const handleManualLog = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
