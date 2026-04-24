@@ -254,12 +254,17 @@ export async function updateTimeEntry(id: string, data: {
 
     let duration = existingEntry.duration;
     if (newEndTime) {
-      duration = TimerCalculator.recomputeDuration({
-        startTime: newStartTime,
-        endTime: newEndTime,
-        pausedAt: existingEntry.pausedAt,
-        pausedSeconds: existingEntry.pausedSeconds,
-      });
+      // finalizeStop flushes any active pause window so the gap between
+      // pausedAt and newEndTime doesn't count toward duration.
+      duration = TimerCalculator.finalizeStop(
+        {
+          startTime: newStartTime,
+          endTime: null,
+          pausedAt: existingEntry.pausedAt,
+          pausedSeconds: existingEntry.pausedSeconds,
+        },
+        newEndTime,
+      ).duration;
       if (duration < 0) {
         return { success: false, error: "End time cannot be before start time" };
       }

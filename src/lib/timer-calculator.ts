@@ -66,11 +66,4 @@ export const TimerCalculator = {
     const extra = clampSeconds(resumedAt.getTime() - toMs(entry.pausedAt));
     return { pausedSeconds: basePaused + extra };
   },
-
-  recomputeDuration(entry: TimerLike): number {
-    if (entry.endTime == null) return entry.duration ?? 0;
-    const pausedSeconds = entry.pausedSeconds ?? 0;
-    const totalSeconds = clampSeconds(toMs(entry.endTime) - toMs(entry.startTime));
-    return Math.max(0, totalSeconds - pausedSeconds);
-  },
 };

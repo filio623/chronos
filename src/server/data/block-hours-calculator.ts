@@ -61,12 +61,17 @@ export async function getClientAllTimeHoursMap(clientIds: string[]): Promise<Map
   for (const id of clientIds) map.set(id, 0);
   if (clientIds.length === 0) return map;
 
-  // Two parallel groupBys: entries directly tagged with clientId, entries via project.
+  // Two parallel groupBys, kept mutually exclusive so entries with BOTH
+  // clientId and projectId aren't counted twice. Project-attached entries
+  // flow through projectRows (keyed by project.clientId); only project-less
+  // entries go through directRows. This matches the realistic case where
+  // entry.clientId is resolved from project.clientId at creation time.
   const [directRows, projectRows] = await Promise.all([
     prisma.timeEntry.groupBy({
       by: ["clientId"],
       where: {
         clientId: { in: clientIds },
+        projectId: null,
         endTime: { not: null },
       },
       _sum: { duration: true },
