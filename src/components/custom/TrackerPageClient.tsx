@@ -10,9 +10,20 @@ interface TrackerPageClientProps {
   projects: Project[];
   clients: Client[];
   tags: Tag[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
-export default function TrackerPageClient({ entries, projects, clients, tags }: TrackerPageClientProps) {
+export default function TrackerPageClient({
+  entries,
+  projects,
+  clients,
+  tags,
+  totalCount,
+  page,
+  pageSize,
+}: TrackerPageClientProps) {
   const handleRestart = async (entry: TimeEntry) => {
     await startTimer(entry.projectId, entry.description);
   };
@@ -24,6 +35,9 @@ export default function TrackerPageClient({ entries, projects, clients, tags }: 
       clients={clients}
       tags={tags}
       onRestart={handleRestart}
+      totalCount={totalCount}
+      page={page}
+      pageSize={pageSize}
     />
   );
 }

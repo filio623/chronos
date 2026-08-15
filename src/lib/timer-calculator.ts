@@ -30,7 +30,7 @@ export function elapsed(entry: TimerLike): number {
   const pausedSeconds = entry.pausedSeconds ?? 0;
 
   if (entry.endTime != null) {
-    return clampSeconds(toMs(entry.endTime) - startMs) - pausedSeconds;
+    return Math.max(0, clampSeconds(toMs(entry.endTime) - startMs) - pausedSeconds);
   }
 
   if (entry.pausedAt != null) {

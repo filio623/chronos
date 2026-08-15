@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -85,19 +85,41 @@ const getHexColor = (color: string) => {
 };
 
 type DatePreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30Days' | 'thisYear' | 'custom';
+type ReportTab = 'summary' | 'detailed' | 'weekly' | 'shared';
+type GroupBy = 'project' | 'client' | 'day';
+
+const DATE_PRESETS: DatePreset[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30Days', 'thisYear', 'custom'];
+
+function parseReportTab(value: string | null): ReportTab {
+  if (value === 'summary' || value === 'detailed' || value === 'weekly' || value === 'shared') return value;
+  return 'summary';
+}
+
+function parseGroupBy(value: string | null): GroupBy {
+  if (value === 'project' || value === 'client' || value === 'day') return value;
+  return 'project';
+}
+
+function parseDatePreset(value: string | null): DatePreset {
+  if (value && (DATE_PRESETS as string[]).includes(value)) return value as DatePreset;
+  return 'last30Days';
+}
 
 const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients = [] }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'summary' | 'detailed' | 'weekly' | 'shared'>('summary');
-  const [datePreset, setDatePreset] = useState<DatePreset>('last30Days');
-  const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date }>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  });
-  const [groupBy, setGroupBy] = useState<'project' | 'client' | 'day'>('project');
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const activeTab = parseReportTab(searchParams.get('reportTab'));
+  const datePreset = parseDatePreset(searchParams.get('preset'));
+  const groupBy = parseGroupBy(searchParams.get('groupBy'));
+  const selectedProject = searchParams.get('project');
+  const selectedClient = searchParams.get('client');
+  const urlFrom = searchParams.get('from');
+  const urlTo = searchParams.get('to');
+  const parsedFrom = urlFrom ? new Date(urlFrom) : null;
+  const parsedTo = urlTo ? new Date(urlTo) : null;
+  const customDateRange = parsedFrom && parsedTo && !Number.isNaN(parsedFrom.getTime()) && !Number.isNaN(parsedTo.getTime())
+    ? { from: parsedFrom, to: parsedTo }
+    : { from: subDays(new Date(), 30), to: new Date() };
   const selectedClientData = selectedClient ? clients.find(c => c.id === selectedClient) || null : null;
 
   const formatDuration = (totalSeconds: number) => {
@@ -134,79 +156,34 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
-  useEffect(() => {
-    const urlTab = searchParams.get('reportTab') as typeof activeTab | null;
-    const urlGroupBy = searchParams.get('groupBy') as typeof groupBy | null;
-    const urlProject = searchParams.get('project');
-    const urlClient = searchParams.get('client');
-    const urlFrom = searchParams.get('from');
-    const urlTo = searchParams.get('to');
-    const urlPreset = searchParams.get('preset') as DatePreset | null;
-
-    if (urlTab && ['summary', 'detailed', 'weekly', 'shared'].includes(urlTab)) {
-      setActiveTab(urlTab);
-    }
-
-    if (urlGroupBy && ['project', 'client', 'day'].includes(urlGroupBy)) {
-      setGroupBy(urlGroupBy);
-    }
-
-    setSelectedProject(urlProject || null);
-    setSelectedClient(urlClient || null);
-
-    if (urlPreset && ['today','yesterday','thisWeek','lastWeek','thisMonth','lastMonth','last30Days','thisYear','custom'].includes(urlPreset)) {
-      setDatePreset(urlPreset);
-    }
-
-    if (urlFrom && urlTo) {
-      const from = new Date(urlFrom);
-      const to = new Date(urlTo);
-      if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
-        setCustomDateRange({ from, to });
-        if (!urlPreset) {
-          setDatePreset('custom');
-        }
-      }
-    }
-  }, [searchParams]);
-
   const handlePresetChange = (preset: DatePreset) => {
-    setDatePreset(preset);
     const now = new Date();
     switch (preset) {
       case 'today':
-        setCustomDateRange({ from: now, to: now });
         updateParams({ from: format(now, 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'today' });
         break;
       case 'yesterday':
         const yesterday = subDays(now, 1);
-        setCustomDateRange({ from: yesterday, to: yesterday });
         updateParams({ from: format(yesterday, 'yyyy-MM-dd'), to: format(yesterday, 'yyyy-MM-dd'), preset: 'yesterday' });
         break;
       case 'thisWeek':
-        setCustomDateRange({ from: startOfWeek(now), to: endOfWeek(now) });
         updateParams({ from: format(startOfWeek(now), 'yyyy-MM-dd'), to: format(endOfWeek(now), 'yyyy-MM-dd'), preset: 'thisWeek' });
         break;
       case 'lastWeek':
         const lastWeekStart = startOfWeek(subDays(now, 7));
-        setCustomDateRange({ from: lastWeekStart, to: endOfWeek(lastWeekStart) });
         updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart), 'yyyy-MM-dd'), preset: 'lastWeek' });
         break;
       case 'thisMonth':
-        setCustomDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
         updateParams({ from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd'), preset: 'thisMonth' });
         break;
       case 'lastMonth':
         const lastMonth = subDays(startOfMonth(now), 1);
-        setCustomDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
         updateParams({ from: format(startOfMonth(lastMonth), 'yyyy-MM-dd'), to: format(endOfMonth(lastMonth), 'yyyy-MM-dd'), preset: 'lastMonth' });
         break;
       case 'last30Days':
-        setCustomDateRange({ from: subDays(now, 30), to: now });
         updateParams({ from: format(subDays(now, 30), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'last30Days' });
         break;
       case 'thisYear':
-        setCustomDateRange({ from: startOfYear(now), to: now });
         updateParams({ from: format(startOfYear(now), 'yyyy-MM-dd'), to: format(now, 'yyyy-MM-dd'), preset: 'thisYear' });
         break;
     }
@@ -272,7 +249,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             value={activeTab}
             onValueChange={(v) => {
               const next = v as typeof activeTab;
-              setActiveTab(next);
               updateParams({ reportTab: next });
             }}
           >
@@ -328,8 +304,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                   selected={{ from: customDateRange.from, to: customDateRange.to }}
                   onSelect={(range) => {
                     if (range?.from && range?.to) {
-                      setCustomDateRange({ from: range.from, to: range.to });
-                      setDatePreset('custom');
                       updateParams({
                         from: format(range.from, 'yyyy-MM-dd'),
                         to: format(range.to, 'yyyy-MM-dd'),
@@ -355,11 +329,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             value={selectedClient || 'all'}
             onValueChange={(v) => {
               const next = v === 'all' ? null : v;
-              setSelectedClient(next);
-              if (next && selectedProject && !projects.find(p => p.id === selectedProject && p.clientId === next)) {
-                setSelectedProject(null);
-              }
-              updateParams({ client: next, project: null });
+              const projectStillValid = next && selectedProject
+                ? !!projects.find(p => p.id === selectedProject && p.clientId === next)
+                : true;
+              updateParams({
+                client: next,
+                project: projectStillValid ? selectedProject : null,
+              });
             }}
           >
             <SelectTrigger className="w-[140px] h-8 text-xs">
@@ -378,7 +354,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             value={selectedProject || 'all'}
             onValueChange={(v) => {
               const next = v === 'all' ? null : v;
-              setSelectedProject(next);
               updateParams({ project: next });
             }}
           >
@@ -400,8 +375,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               size="sm"
               className="text-xs text-rose-500 h-8"
               onClick={() => {
-                setSelectedProject(null);
-                setSelectedClient(null);
                 updateParams({ project: null, client: null });
               }}
             >
@@ -498,7 +471,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               value={groupBy}
               onValueChange={(v) => {
                 const next = v as typeof groupBy;
-                setGroupBy(next);
                 updateParams({ groupBy: next });
               }}
             >

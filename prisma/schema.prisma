@@ -37,7 +37,7 @@ enum InvoiceBlockStatus {
 
 model Workspace {
   id        String   @id @default(uuid())
-  name      String
+  name      String   @unique
   ownerId   String   // Could be linked to a User model later if using Auth
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

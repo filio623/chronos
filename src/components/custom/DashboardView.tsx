@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import BudgetCard from '@/components/custom/BudgetCard';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
 import { Project, TimeEntry, Client, Tag } from '@/types';
 import { tailwindToHex } from '@/lib/colors';
-import { formatElapsedDuration } from '@/components/custom/AppShell';
 import { startTimer } from '@/server/actions/time-entries';
 
 interface DashboardViewProps {
@@ -21,7 +20,6 @@ export default function DashboardView({
   projects,
   clients,
   entries,
-  activeTimer,
   tags,
 }: DashboardViewProps) {
   const router = useRouter();

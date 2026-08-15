@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useOptimistic, useTransition, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import Sidebar from '@/components/custom/Sidebar';
@@ -8,7 +8,14 @@ import TimerBar from '@/components/custom/TimerBar';
 import { Project, TimeEntry, Client } from '@/types';
 import { startTimer, stopTimer, pauseTimer, resumeTimer } from '@/server/actions/time-entries';
 import { elapsed as elapsedSecondsForTimer, TimerCalculator, type TimerLike } from '@/lib/timer-calculator';
-import { formatDuration, formatBrowserTitle } from '@/lib/time';
+import {
+  formatDuration,
+  browserTitle,
+  timerStatusFromEntry,
+  resolveTimerChromeStatus,
+  shouldClearTimerIntent,
+  type TimerChromeStatus,
+} from '@/lib/time';
 
 interface AppShellProps {
   initialProjects: Project[];
@@ -26,14 +33,8 @@ function toTimerLike(timer: TimeEntry): TimerLike {
   };
 }
 
-function calculateElapsedSeconds(timer: TimeEntry | null): number {
-  if (!timer) return 0;
-  return elapsedSecondsForTimer(toTimerLike(timer));
-}
-
 export const formatElapsedDuration = formatDuration;
 
-// Map pathname to view name for sidebar highlighting
 function pathnameToView(pathname: string): string {
   if (pathname.startsWith('/timesheet')) return 'timesheet';
   if (pathname.startsWith('/tracker')) return 'tracker';
@@ -59,94 +60,82 @@ export default function AppShell({
     router.push(path);
   }, [router]);
 
-  const [elapsedSeconds, setElapsedSeconds] = useState(() => calculateElapsedSeconds(activeTimer));
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const lastTimerIdRef = useRef<string | null>(activeTimer?.id || null);
+  const serverStatus = timerStatusFromEntry(activeTimer);
+  const [intent, setIntent] = useState<TimerChromeStatus | null>(null);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
+  const [resumeStartedAt, setResumeStartedAt] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [, startTransition] = useTransition();
 
-  // Optimistic timer state for instant UI feedback
-  const [optimisticTimerState, setOptimisticTimerState] = useOptimistic(
-    {
-      status: activeTimer ? (activeTimer.pausedAtISO ? 'paused' : 'running') : 'stopped',
-      timerId: activeTimer?.id || null
-    },
-    (state, action: { type: 'start' | 'stop' | 'pause' | 'resume' }) => {
-      if (action.type === 'start') {
-        return { status: 'running', timerId: 'optimistic-temp' };
-      }
-      if (action.type === 'pause') {
-        return { status: 'paused', timerId: state.timerId };
-      }
-      if (action.type === 'resume') {
-        return { status: 'running', timerId: state.timerId };
-      }
-      return { status: 'stopped', timerId: null };
+  if (shouldClearTimerIntent(serverStatus, intent)) {
+    setIntent(null);
+  }
+
+  const status = resolveTimerChromeStatus(serverStatus, intent);
+  const isRunning = status === 'running';
+  const isPaused = status === 'paused';
+  const isActive = status !== 'stopped';
+
+  const sessionProjectId = activeTimer?.projectId || pendingProjectId;
+  const activeProject = sessionProjectId
+    ? initialProjects.find(p => p.id === sessionProjectId) || null
+    : null;
+
+  const elapsedSeconds = (() => {
+    if (isPaused) {
+      return frozenElapsed ?? (activeTimer ? elapsedSecondsForTimer(toTimerLike(activeTimer)) : 0);
     }
-  );
-
-  const isRunning = optimisticTimerState.status === 'running';
-  const isPaused = optimisticTimerState.status === 'paused';
-  const isActive = optimisticTimerState.status !== 'stopped';
-
-  // Initialize from active timer - only recalculate when timer ID changes
-  useEffect(() => {
+    // After resume, keep the frozen pause value until the server clears pausedAt.
+    // elapsedAt() ignores an open pause window and would jump forward.
+    if (isRunning && frozenElapsed != null && resumeStartedAt != null && serverStatus !== "running") {
+      return frozenElapsed + Math.max(0, Math.floor((nowMs - resumeStartedAt) / 1000));
+    }
     if (activeTimer) {
-      const proj = initialProjects.find(p => p.id === activeTimer.projectId) || null;
-      setActiveProject(proj);
-
-      if (lastTimerIdRef.current !== activeTimer.id) {
-        lastTimerIdRef.current = activeTimer.id;
-        const startStr = activeTimer.startTimeISO || activeTimer.startTime;
-        const start = new Date(startStr).getTime();
-        if (!isNaN(start)) {
-          setElapsedSeconds(calculateElapsedSeconds(activeTimer));
-        } else {
-          console.error("Invalid start time for active timer:", startStr);
-          setElapsedSeconds(0);
-        }
-      }
-    } else {
-      lastTimerIdRef.current = null;
-      setElapsedSeconds(0);
-      setActiveProject(null);
+      return TimerCalculator.elapsedAt(toTimerLike(activeTimer), new Date(nowMs));
     }
-  }, [activeTimer, initialProjects]);
+    return 0;
+  })();
 
-  // Timer tick effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRunning && activeTimer) {
-      interval = setInterval(() => {
-        setElapsedSeconds(calculateElapsedSeconds(activeTimer));
-      }, 1000);
-    }
+    if (!isRunning) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [isRunning, activeTimer]);
+  }, [isRunning]);
 
-  // Browser tab title effect
   useEffect(() => {
-    if (isRunning) {
-      document.title = `${formatBrowserTitle(elapsedSeconds)} - Chronos`;
-    } else if (isPaused) {
-      document.title = `Paused • ${formatBrowserTitle(elapsedSeconds)} - Chronos`;
-    } else {
-      document.title = 'Chronos';
-    }
-  }, [isRunning, isPaused, elapsedSeconds]);
+    const wanted = () => browserTitle(status, elapsedSeconds);
+    document.title = wanted();
+
+    // Next.js metadata (`title: "Chronos"`) rewrites <title> after
+    // revalidatePath. Re-apply so pause/resume titles survive the RSC refresh.
+    const titleEl = document.querySelector("title");
+    if (!titleEl) return;
+    const observer = new MutationObserver(() => {
+      const next = wanted();
+      if (document.title !== next) document.title = next;
+    });
+    observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
+    return () => observer.disconnect();
+  }, [status, elapsedSeconds, activeTimer?.id, activeTimer?.pausedAtISO]);
 
   const handleStartTimer = async (projectId: string | null, description: string) => {
-    const proj = projectId ? initialProjects.find(p => p.id === projectId) || null : null;
-    setActiveProject(proj);
-    setElapsedSeconds(0);
+    setPendingProjectId(projectId);
+    setFrozenElapsed(null);
+    setResumeStartedAt(null);
+    setIntent('running');
+    setNowMs(Date.now());
     startTransition(async () => {
-      setOptimisticTimerState({ type: 'start' });
       await startTimer(projectId, description);
     });
   };
 
   const handleStopTimer = async () => {
+    setIntent('stopped');
+    setFrozenElapsed(null);
+    setResumeStartedAt(null);
+    setPendingProjectId(null);
     startTransition(async () => {
-      setOptimisticTimerState({ type: 'stop' });
       if (activeTimer) {
         await stopTimer(activeTimer.id);
       }
@@ -154,28 +143,33 @@ export default function AppShell({
   };
 
   const handlePauseTimer = async () => {
-    if (!activeTimer) return;
-    setElapsedSeconds(TimerCalculator.elapsedAt(toTimerLike(activeTimer), new Date()));
+    const source = activeTimer;
+    const frozen = source
+      ? TimerCalculator.elapsedAt(toTimerLike(source), new Date())
+      : elapsedSeconds;
+    setFrozenElapsed(frozen);
+    setResumeStartedAt(null);
+    setIntent('paused');
     startTransition(async () => {
-      setOptimisticTimerState({ type: 'pause' });
-      await pauseTimer(activeTimer.id);
+      if (source) {
+        await pauseTimer(source.id);
+      }
     });
   };
 
   const handleResumeTimer = async () => {
-    if (!activeTimer) return;
+    setIntent('running');
+    setResumeStartedAt(Date.now());
+    setNowMs(Date.now());
     startTransition(async () => {
-      setOptimisticTimerState({ type: 'resume' });
-      await resumeTimer(activeTimer.id);
+      if (activeTimer) {
+        await resumeTimer(activeTimer.id);
+      }
     });
   };
 
   const handleNavigateToProject = (projectId: string) => {
     router.push(`/projects?highlight=${projectId}`);
-  };
-
-  const handleNavigateToClient = (clientId: string) => {
-    router.push(`/clients?highlight=${clientId}`);
   };
 
   return (
@@ -191,7 +185,6 @@ export default function AppShell({
 
       <main className="flex-1 md:ml-[250px] min-w-0 flex flex-col h-screen">
         <div className="flex items-center">
-          {/* Mobile hamburger menu */}
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}

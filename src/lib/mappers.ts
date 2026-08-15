@@ -2,7 +2,7 @@ import { Project, Client, TimeEntry, InvoiceBlock, InvoiceBlockStatus } from "@/
 import { ProjectWithHours } from "@/server/data/projects";
 import { ClientWithData } from "@/server/data/clients";
 import { TimeEntryWithRelations } from "@/server/data/time-entries";
-import { TimeEntry as PrismaTimeEntry, InvoiceBlock as PrismaInvoiceBlock } from "@prisma/client";
+import { TimeEntry as PrismaTimeEntry } from "@prisma/client";
 import { InvoiceBlockWithHours } from "@/server/data/invoice-blocks";
 import { elapsed as elapsedSecondsForTimer } from "@/lib/timer-calculator";
 import { formatDuration } from "@/lib/time";

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { TimeEntry, Project, Client, Tag } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
@@ -32,9 +33,22 @@ interface TrackerListProps {
   clients: Client[];
   tags: Tag[];
   onRestart: (entry: TimeEntry) => void;
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
-const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, tags, onRestart }) => {
+const TrackerList: React.FC<TrackerListProps> = ({
+  entries,
+  projects,
+  clients,
+  tags,
+  onRestart,
+  totalCount,
+  page,
+  pageSize,
+}) => {
+  const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [entryProjectId, setEntryProjectId] = useState<string>('none');
@@ -131,6 +145,35 @@ const TrackerList: React.FC<TrackerListProps> = ({ entries, projects, clients, t
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          {totalCount === 0
+            ? 'No time entries yet.'
+            : `Showing ${Math.min((page - 1) * pageSize + 1, totalCount)}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
+        </p>
+        {totalCount > pageSize && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => router.push(page <= 2 ? '/tracker' : `/tracker?page=${page - 1}`)}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={page * pageSize >= totalCount}
+              onClick={() => router.push(`/tracker?page=${page + 1}`)}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="flex justify-end">
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);

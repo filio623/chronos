@@ -92,9 +92,8 @@ export async function createTag(formData: FormData) {
     revalidatePath("/");
     revalidatePath("/tracker");
     return { success: true, data: tag };
-  } catch (error: any) {
-    // Handle unique constraint violation
-    if (error?.code === 'P2002') {
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       return { success: false, error: "A tag with this name already exists" };
     }
     console.error("Failed to create tag:", error);
@@ -130,8 +129,8 @@ export async function updateTag(id: string, formData: FormData) {
     revalidatePath("/");
     revalidatePath("/tracker");
     return { success: true };
-  } catch (error: any) {
-    if (error?.code === 'P2002') {
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       return { success: false, error: "A tag with this name already exists" };
     }
     console.error("Failed to update tag:", error);

@@ -5,12 +5,20 @@ import { getTimeEntries, TimeEntryWithRelations } from "@/server/data/time-entri
 import { getTags } from "@/server/data/tags";
 import { Project, Client } from "@/types";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
+import { parsePageParam } from "@/lib/time";
 
-export default async function TrackerPage() {
+const PAGE_SIZE = 50;
+
+export default async function TrackerPage(props: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const searchParams = await props.searchParams;
+  const page = parsePageParam(typeof searchParams?.page === "string" ? searchParams.page : undefined);
+
   const [projectsData, clientsData, entriesData, tagsData] = await Promise.all([
     getProjects({ status: 'active', pageSize: 50 }),
     getClientsWithData(),
-    getTimeEntries(),
+    getTimeEntries({ page, pageSize: PAGE_SIZE }),
     getTags(),
   ]);
 
@@ -18,7 +26,7 @@ export default async function TrackerPage() {
   const clients = clientsData.map(mapClient);
   const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
   const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
-  const entries = entriesData.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
+  const entries = entriesData.entries.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
   const tags = tagsData.map((tag: { id: string; name: string; color: string | null; isSystem: boolean }) => ({
     id: tag.id,
     name: tag.name,
@@ -36,6 +44,9 @@ export default async function TrackerPage() {
         projects={projects}
         clients={clients}
         tags={tags}
+        totalCount={entriesData.totalCount}
+        page={page}
+        pageSize={PAGE_SIZE}
       />
     </section>
   );

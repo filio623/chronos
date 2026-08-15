@@ -1,9 +1,10 @@
 import AppShell from "@/components/custom/AppShell";
 import { getProjects } from "@/server/data/projects";
 import { getClientsWithData } from "@/server/data/clients";
-import { getActiveTimer, TimeEntryWithRelations } from "@/server/data/time-entries";
-import { Project, Client } from "@/types";
+import { getActiveTimer } from "@/server/data/time-entries";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
   children,

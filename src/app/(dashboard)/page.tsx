@@ -24,7 +24,7 @@ export default async function DashboardPage(props: {
   const [projectsData, clientsData, entriesData, activeTimerData, tagsData] = await Promise.all([
     getProjects({ status: 'active', pageSize: 50 }),
     getClientsWithData(),
-    getTimeEntries(10),
+    getTimeEntries({ pageSize: 10 }),
     getActiveTimer(),
     getTags(),
   ]);
@@ -33,7 +33,7 @@ export default async function DashboardPage(props: {
   const clients = clientsData.map(mapClient);
   const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
   const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
-  const entries = entriesData.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
+  const entries = entriesData.entries.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
   const activeTimer = activeTimerData ? mapEntry(activeTimerData, projectMap, clientMap) : null;
   const tags = tagsData.map((tag: { id: string; name: string; color: string | null; isSystem: boolean }) => ({
     id: tag.id,

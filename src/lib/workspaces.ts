@@ -1,23 +1,19 @@
 import prisma from "@/lib/prisma";
 
+const DEFAULT_WORKSPACE_NAME = "Default Workspace";
+
 /**
- * For the initial development phase without full Auth,
- * we use a default workspace to satisfy the DB constraints.
+ * Single-tenant bootstrap. Name is unique; upsert is safe under concurrency.
  */
 export async function getDefaultWorkspaceId() {
-  const workspace = await prisma.workspace.findFirst({
-    where: { name: "Default Workspace" }
+  const workspace = await prisma.workspace.upsert({
+    where: { name: DEFAULT_WORKSPACE_NAME },
+    update: {},
+    create: {
+      name: DEFAULT_WORKSPACE_NAME,
+      ownerId: "system",
+    },
   });
 
-  if (workspace) return workspace.id;
-
-  // Create it if it doesn't exist
-  const newWorkspace = await prisma.workspace.create({
-    data: {
-      name: "Default Workspace",
-      ownerId: "system", // Placeholder
-    }
-  });
-
-  return newWorkspace.id;
+  return workspace.id;
 }

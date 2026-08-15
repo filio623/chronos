@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useTransition } from 'react';
-import { toast } from "sonner";
+import React, { useState, useTransition } from 'react';
 import { TimeEntry, Project, Tag } from '@/types';
 import { Play, DollarSign, MoreVertical, Calendar, Trash2, Loader2 } from 'lucide-react';
 import ConfirmDeleteDialog from "@/components/custom/ConfirmDeleteDialog";
@@ -31,28 +30,13 @@ interface TimeEntryRowProps {
 const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTags, onRestart }) => {
   const [isPending, startTransition] = useTransition();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState(() => entry.tags?.map(t => t.id) || []);
   const [localBillable, setLocalBillable] = useState(entry.isBillable);
   const [rateOpen, setRateOpen] = useState(false);
   const [rateInput, setRateInput] = useState('');
   const [localRateOverride, setLocalRateOverride] = useState<number | null>(entry.rateOverride ?? null);
   const [localEffectiveRate, setLocalEffectiveRate] = useState<number | null>(entry.effectiveRate ?? null);
   const [localRateSource, setLocalRateSource] = useState(entry.rateSource ?? 'none');
-
-  // Sync local state from server data after revalidation
-  useEffect(() => {
-    setSelectedTagIds(entry.tags?.map(t => t.id) || []);
-    setLocalBillable(entry.isBillable);
-    setLocalRateOverride(entry.rateOverride ?? null);
-    setLocalEffectiveRate(entry.effectiveRate ?? null);
-    setLocalRateSource(entry.rateSource ?? 'none');
-  }, [entry.tags, entry.isBillable, entry.rateOverride, entry.effectiveRate, entry.rateSource]);
-
-  useEffect(() => {
-    if (!rateOpen) return;
-    const baseRate = entry.rateOverride ?? entry.effectiveRate ?? null;
-    setRateInput(baseRate !== null ? String(baseRate) : '');
-  }, [rateOpen, entry.rateOverride, entry.effectiveRate]);
 
   const handleDelete = () => {
     setShowDeleteDialog(true);
@@ -188,7 +172,13 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, availableTa
 
         {/* Rate */}
         <div className="hidden lg:flex items-center text-xs text-slate-500 w-24 justify-end">
-          <Popover open={rateOpen} onOpenChange={setRateOpen}>
+          <Popover open={rateOpen} onOpenChange={(open) => {
+            setRateOpen(open);
+            if (open) {
+              const baseRate = localRateOverride ?? entry.rateOverride ?? entry.effectiveRate ?? null;
+              setRateInput(baseRate !== null ? String(baseRate) : '');
+            }
+          }}>
             <PopoverTrigger asChild>
               <button
                 type="button"

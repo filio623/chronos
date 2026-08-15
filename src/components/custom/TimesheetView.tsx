@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition, useEffect } from 'react';
+import React, { useState, useMemo, useTransition } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -36,6 +36,7 @@ interface TimesheetViewProps {
   projects: Project[];
   clients: Client[];
   entries: TimeEntry[];
+  weekStart: string;
 }
 
 interface TimesheetRow {
@@ -44,8 +45,8 @@ interface TimesheetRow {
   values: string[];
 }
 
-const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entries }) => {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entries, weekStart }) => {
+  const currentWeekStart = parseDateKeyToLocalDate(weekStart) ?? startOfWeek(new Date(), { weekStartsOn: 0 });
   const router = useRouter();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isManualOpen, setIsManualOpen] = useState(false);
@@ -76,6 +77,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     : null;
 
   const isClientLocked = !!selectedProject?.clientId;
+  const displayClientId = selectedProject?.clientId ?? entryClientId;
 
   const getDefaultBillable = (projectId: string, clientId: string) => {
     if (projectId !== 'none') {
@@ -93,16 +95,9 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     return true;
   };
 
-  useEffect(() => {
-    if (selectedProject?.clientId) {
-      setEntryClientId(selectedProject.clientId);
-    }
-  }, [selectedProject?.clientId]);
-
-  useEffect(() => {
-    if (billableTouched) return;
-    setEntryIsBillable(getDefaultBillable(entryProjectId, entryClientId));
-  }, [billableTouched, entryProjectId, entryClientId]);
+  const displayBillable = billableTouched
+    ? entryIsBillable
+    : getDefaultBillable(entryProjectId, displayClientId);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,8 +269,14 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     return { name: project.name, client: project.client, color: project.color };
   };
 
-  const prevWeek = () => setCurrentWeekStart(prev => subWeeks(prev, 1));
-  const nextWeek = () => setCurrentWeekStart(prev => addWeeks(prev, 1));
+  const prevWeek = () => {
+    const next = subWeeks(currentWeekStart, 1);
+    router.push(`/timesheet?week=${format(next, 'yyyy-MM-dd')}`);
+  };
+  const nextWeek = () => {
+    const next = addWeeks(currentWeekStart, 1);
+    router.push(`/timesheet?week=${format(next, 'yyyy-MM-dd')}`);
+  };
 
   const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
 
@@ -297,7 +298,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     e.preventDefault();
 
     const projectId = entryProjectId === 'none' ? null : entryProjectId;
-    const clientId = entryClientId === 'none' ? null : entryClientId;
+    const clientId = displayClientId === 'none' ? null : displayClientId;
 
     let startTime: Date;
     let endTime: Date;
@@ -334,7 +335,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
         description: entryDescription,
         startTime,
         endTime,
-        isBillable: entryIsBillable,
+        isBillable: displayBillable,
         rateOverride: entryRateOverride.trim() ? parseFloat(entryRateOverride) : null,
       });
 
@@ -559,7 +560,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                 <Label htmlFor="entry-billable">Billable</Label>
                 <div className="flex items-center gap-2 h-10">
                   <Switch
-                    checked={entryIsBillable}
+                    checked={displayBillable}
                     onCheckedChange={(checked) => {
                       setEntryIsBillable(checked);
                       setBillableTouched(true);
@@ -567,7 +568,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                     id="entry-billable"
                   />
                   <span className="text-xs text-slate-500">
-                    {entryIsBillable ? 'Billable' : 'Non-billable'}
+                    {displayBillable ? 'Billable' : 'Non-billable'}
                   </span>
                 </div>
               </div>
@@ -632,7 +633,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
               <div className="space-y-2">
                 <Label>Client (optional)</Label>
                 <Select
-                  value={entryClientId}
+                  value={displayClientId}
                   onValueChange={(value) => {
                     if (value === 'create-new-client') {
                       setIsCreateClientOpen(true);

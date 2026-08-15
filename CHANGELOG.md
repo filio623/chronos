@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+### Fixed
+- Pausing a timer now keeps a pause symbol plus the elapsed time in the browser tab (`⏸ mm:ss - Chronos`) until you resume or stop, instead of falling back to a bare `Chronos` title.
+- Timesheet week navigation queries that week on the server, so older weeks no longer look empty once you have more than 50 entries. Tracker paginates with a visible “showing N of M” count.
+
 ### Added
 - Invoice block work assignment tools: you can now add specific past entries and selected projects to an active invoice block, with project links continuing to auto-capture future entries for those projects.
 - New “Create Block from Work” flow for clients without an active block, including multi-select entry/project grouping and auto-filled target hours based on selected work.
