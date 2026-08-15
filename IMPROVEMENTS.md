@@ -591,7 +591,7 @@ empties Thursday.”
 
 One policy for “what work belongs on this retainer,” with DB constraints.
 
-### [ ] 22. At most one running timer (DB + transaction)
+### [x] 22. At most one running timer (DB + transaction)
 
 `startTimer` is stop-all-then-insert, not transactional. Two parallel starts
 can leave two `endTime: null` rows. `getActiveTimer` is unordered `findFirst`.
@@ -600,9 +600,18 @@ can leave two `endTime: null` rows. `getActiveTimer` is unordered `findFirst`.
 `startTimer` finalizes any open row and inserts the new one in one
 transaction; a concurrent second start cannot leave two running rows.
 
+**Evidence:** Migration
+`prisma/migrations/20260815120000_phase3_uniques/migration.sql`
+creates `TimeEntry_one_running_key` WHERE `endTime IS NULL`.
+`startTimer` calls `startTimerInTransaction` inside `$transaction`
+(Serializable) and retries once on P2002. `getActiveTimer` uses
+`activeTimerQuery` ordered by `startTime desc`. Tests in
+`src/lib/invoice-integrity.test.ts` drive the shipped transaction
+helper (finalize then insert).
+
 ---
 
-### [ ] 23. At most one ACTIVE invoice block per client
+### [x] 23. At most one ACTIVE invoice block per client
 
 `createInvoiceBlock` / `createInvoiceBlockFromWork` are check-then-insert.
 `findLatestActiveClientBlock` then picks `startDate desc` and ignores extras.
@@ -611,9 +620,16 @@ transaction; a concurrent second start cannot leave two running rows.
 create paths use it (not only a pre-check); a concurrent second create fails
 cleanly with the existing “already has an active block” error.
 
+**Evidence:** Same migration:
+`InvoiceBlock_one_active_per_client_key` on `clientId` WHERE
+`status = 'ACTIVE'`. `createInvoiceBlock` /
+`createInvoiceBlockFromWork` map P2002 via
+`mapActiveBlockUniqueError` to `ACTIVE_BLOCK_ALREADY_EXISTS`.
+Applied on Neon with `prisma migrate deploy`.
+
 ---
 
-### [ ] 24. `resetInvoiceBlock` is one transaction
+### [x] 24. `resetInvoiceBlock` is one transaction
 
 Completes the old block, then optionally creates the next. Create failure =
 no active block and lost overage. `newTargetHours` is unvalidated.
@@ -622,9 +638,14 @@ no active block and lost overage. `newTargetHours` is unvalidated.
 `newTargetHours` is Zod-validated the same as create; a mid-flight failure
 leaves the original block ACTIVE.
 
+**Evidence:** `resetInvoiceBlock` validates with `hoursTargetSchema`
+(same as create) then `prisma.$transaction(resetInvoiceBlockInTransaction)`.
+Tests: complete then create in one callback; create throw rejects so a
+real `$transaction` would roll back.
+
 ---
 
-### [ ] 25. One membership rule for invoice assignment
+### [x] 25. One membership rule for invoice assignment
 
 Today: `resolveEntryLinkage`, `entryBelongsToClient`, assign `updateMany`
 (no client filter on the project branch), reports OR, hours maps keyed by
@@ -651,9 +672,18 @@ A deeper `InvoiceAssignment` module is Phase 5. Do not split more files here.
 project client change has an explicit policy (move, clear, or block) and
 does not silently fork hours.
 
+**Evidence:** Policy is **relink** (`invoiceBlockAfterProjectChange`).
+`updateTimeEntry` always writes the resolved block when project changes.
+`stopTimer` uses `invoiceBlockOnStop` (re-resolve if stamp is not
+ACTIVE). Assign-work project branch uses `assignProjectEntriesWhere`
+(clientId or null). `getInvoiceBlockWorkOptions` rejects a foreign
+`blockId`. Status uses `canTransitionInvoiceStatus`. Delete uses
+`canDeleteInvoiceBlock` (PAID needs force). Tests in
+`invoice-integrity.test.ts`.
+
 ---
 
-### [ ] 26. Invoice UX: visible actions, honest empty, unlink, rename Reset
+### [x] 26. Invoice UX: visible actions, honest empty, unlink, rename Reset
 
 Hover-only “Set Invoice Target” / “Create From Work”. New block shows 0h
 with no “add work” hint. Reset means complete + maybe open next. No unlink
@@ -663,6 +693,11 @@ of a project or entry. Touch users never see the CTAs.
 assigned; Reset is labeled Complete; you can unlink a project and remove an
 entry from an active block. Browser-verified on desktop and a narrow
 viewport.
+
+**Evidence:** Client-row create CTAs visible without hover (desktop +
+390). After expand: Add Work, Complete, “0h until work is assigned”.
+Complete dialog title. Assigned a project/entry then Unlink and Remove
+succeeded. Scratch: `phase3-browser.txt`.
 
 ---
 

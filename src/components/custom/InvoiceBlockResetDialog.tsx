@@ -61,7 +61,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-amber-500" />
-            Reset Invoice Block
+            Complete Invoice Block
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
@@ -158,7 +158,7 @@ const InvoiceBlockResetDialog: React.FC<InvoiceBlockResetDialogProps> = ({
             className="bg-indigo-600 hover:bg-indigo-700"
           >
             {isPending && <Loader2 size={16} className="animate-spin mr-2" />}
-            {createNewBlock ? 'Reset & Create New' : 'Complete Block'}
+            {createNewBlock ? 'Complete & Create New' : 'Complete Block'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeEntryListArgs } from "./time-entries";
+import { activeTimerQuery, buildTimeEntryListArgs } from "./time-entries";
 
 describe("buildTimeEntryListArgs", () => {
   it("builds a week range without a 50-row cap", () => {
@@ -15,6 +15,11 @@ describe("buildTimeEntryListArgs", () => {
     const args = buildTimeEntryListArgs({ page: 2, pageSize: 50 });
     expect(args.skip).toBe(50);
     expect(args.take).toBe(50);
+  });
+
+  it("orders the active timer by newest start", () => {
+    expect(activeTimerQuery.where).toEqual({ endTime: null });
+    expect(activeTimerQuery.orderBy).toEqual({ startTime: "desc" });
   });
 
   it("applies text, project, client, and billable filters", () => {

@@ -5,10 +5,20 @@ import { revalidatePath } from "next/cache";
 import { InvoiceBlockStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getBlockHours } from "@/server/data/block-hours-calculator";
+import {
+  ACTIVE_BLOCK_ALREADY_EXISTS,
+  assignProjectEntriesWhere,
+  canDeleteInvoiceBlock,
+  canTransitionInvoiceStatus,
+  hoursTargetSchema,
+  mapActiveBlockUniqueError,
+  resetInvoiceBlockInTransaction,
+  workOptionsRejectReason,
+} from "@/lib/invoice-integrity";
 
 const createBlockSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
-  hoursTarget: z.number().min(0.5, "Hours target must be at least 0.5").max(10000, "Hours target too large"),
+  hoursTarget: hoursTargetSchema,
   notes: z.string().max(500, "Notes too long").optional(),
 });
 
@@ -16,12 +26,12 @@ const createBlockFromWorkSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
   entryIds: z.array(z.string().uuid("Invalid entry ID")).max(1000).default([]),
   projectIds: z.array(z.string().uuid("Invalid project ID")).max(200).default([]),
-  hoursTarget: z.number().min(0.5, "Hours target must be at least 0.5").max(10000, "Hours target too large").optional(),
+  hoursTarget: hoursTargetSchema.optional(),
   notes: z.string().max(500, "Notes too long").optional(),
 });
 
 const updateBlockSchema = z.object({
-  hoursTarget: z.number().min(0.5, "Hours target must be at least 0.5").max(10000, "Hours target too large").optional(),
+  hoursTarget: hoursTargetSchema.optional(),
   notes: z.string().max(500, "Notes too long").optional().nullable(),
 });
 
@@ -93,7 +103,7 @@ export async function createInvoiceBlock(
     if (existingBlock) {
       return {
         success: false,
-        error: "Client already has an active invoice block. Please complete it first.",
+        error: ACTIVE_BLOCK_ALREADY_EXISTS,
       };
     }
 
@@ -109,6 +119,8 @@ export async function createInvoiceBlock(
     revalidateInvoicePaths();
     return { success: true, data: block };
   } catch (error) {
+    const unique = mapActiveBlockUniqueError(error);
+    if (unique) return { success: false, error: unique };
     console.error("Failed to create invoice block:", error);
     return { success: false, error: "Failed to create invoice block" };
   }
@@ -145,7 +157,7 @@ export async function createInvoiceBlockFromWork(input: {
     if (existingBlock) {
       return {
         success: false,
-        error: "Client already has an active invoice block. Add work to it instead.",
+        error: ACTIVE_BLOCK_ALREADY_EXISTS,
       };
     }
 
@@ -261,6 +273,8 @@ export async function createInvoiceBlockFromWork(input: {
       },
     };
   } catch (error) {
+    const unique = mapActiveBlockUniqueError(error);
+    if (unique) return { success: false, error: unique };
     console.error("Failed to create invoice block from work:", error);
     return { success: false, error: "Failed to create invoice block from selected work" };
   }
@@ -276,6 +290,15 @@ export async function getInvoiceBlockWorkOptions(clientId: string, blockId?: str
   }
 
   try {
+    if (parsed.data.blockId) {
+      const block = await prisma.invoiceBlock.findUnique({
+        where: { id: parsed.data.blockId },
+        select: { clientId: true },
+      });
+      const reject = workOptionsRejectReason(block, parsed.data.clientId);
+      if (reject) return { success: false, error: reject };
+    }
+
     const projects = await prisma.project.findMany({
       where: { clientId: parsed.data.clientId },
       select: {
@@ -507,13 +530,25 @@ export async function assignWorkToInvoiceBlock(input: {
           })
         : { count: 0 };
 
+      if (validProjectIds.length > 0) {
+        const alreadyLinked = await tx.invoiceBlockProject.findMany({
+          where: {
+            projectId: { in: validProjectIds },
+            invoiceBlock: {
+              status: InvoiceBlockStatus.ACTIVE,
+              id: { not: block.id },
+            },
+          },
+          select: { projectId: true },
+        });
+        if (alreadyLinked.length > 0) {
+          throw new Error("PROJECT_ALREADY_ON_ACTIVE_BLOCK");
+        }
+      }
+
       const projectEntryAssignResult = validProjectIds.length
         ? await tx.timeEntry.updateMany({
-            where: {
-              projectId: { in: validProjectIds },
-              endTime: { not: null },
-              invoiceBlockId: null,
-            },
+            where: assignProjectEntriesWhere(block.clientId, validProjectIds),
             data: {
               invoiceBlockId: block.id,
             },
@@ -539,6 +574,9 @@ export async function assignWorkToInvoiceBlock(input: {
       },
     };
   } catch (error) {
+    if (error instanceof Error && error.message === "PROJECT_ALREADY_ON_ACTIVE_BLOCK") {
+      return { success: false, error: "A selected project is already live-linked to another active block" };
+    }
     console.error("Failed to assign work to invoice block:", error);
     return { success: false, error: "Failed to add work to invoice block" };
   }
@@ -558,6 +596,15 @@ export async function resetInvoiceBlock(
     return { success: false, error: "Invalid block ID" };
   }
 
+  let validatedTarget: number | undefined;
+  if (newTargetHours !== undefined) {
+    const targetParsed = hoursTargetSchema.safeParse(newTargetHours);
+    if (!targetParsed.success) {
+      return { success: false, error: targetParsed.error.issues[0]?.message || "Invalid target hours" };
+    }
+    validatedTarget = targetParsed.data;
+  }
+
   try {
     const block = await prisma.invoiceBlock.findUnique({
       where: { id: parsed.data },
@@ -572,32 +619,24 @@ export async function resetInvoiceBlock(
     }
 
     const blockHours = await getBlockHours(block.id);
-
-    const effectiveTracked = blockHours + block.hoursCarriedForward;
-    const overage = Math.max(0, effectiveTracked - block.hoursTarget);
-
-    await prisma.invoiceBlock.update({
-      where: { id: parsed.data },
-      data: {
-        status: InvoiceBlockStatus.COMPLETED,
-        endDate: new Date(),
-      },
-    });
-
-    if (newTargetHours && newTargetHours > 0) {
-      await prisma.invoiceBlock.create({
-        data: {
-          clientId: block.clientId,
-          hoursTarget: newTargetHours,
-          hoursCarriedForward: carryOverage ? overage : 0,
-          status: InvoiceBlockStatus.ACTIVE,
-        },
-      });
-    }
+    const result = await prisma.$transaction(async (tx) =>
+      resetInvoiceBlockInTransaction(tx, {
+        blockId: block.id,
+        clientId: block.clientId,
+        hoursCarriedForward: block.hoursCarriedForward,
+        hoursTarget: block.hoursTarget,
+        carryOverage,
+        newTargetHours: validatedTarget,
+        blockHours,
+        now: new Date(),
+      }),
+    );
 
     revalidateInvoicePaths();
-    return { success: true, overage };
+    return { success: true, overage: result.overage };
   } catch (error) {
+    const unique = mapActiveBlockUniqueError(error);
+    if (unique) return { success: false, error: unique };
     console.error("Failed to reset invoice block:", error);
     return { success: false, error: "Failed to reset invoice block" };
   }
@@ -681,6 +720,10 @@ export async function updateInvoiceBlockStatus(blockId: string, status: NonActiv
       return { success: true };
     }
 
+    if (!canTransitionInvoiceStatus(block.status, parsed.data.status)) {
+      return { success: false, error: "Status must follow Completed → Submitted → Paid" };
+    }
+
     await prisma.invoiceBlock.update({
       where: { id: parsed.data.blockId },
       data: {
@@ -700,13 +743,24 @@ export async function updateInvoiceBlockStatus(blockId: string, status: NonActiv
 /**
  * Delete an invoice block
  */
-export async function deleteInvoiceBlock(blockId: string) {
+export async function deleteInvoiceBlock(blockId: string, options?: { force?: boolean }) {
   const parsed = idSchema.safeParse(blockId);
   if (!parsed.success) {
     return { success: false, error: "Invalid block ID" };
   }
 
   try {
+    const block = await prisma.invoiceBlock.findUnique({
+      where: { id: parsed.data },
+      select: { status: true },
+    });
+    if (!block) {
+      return { success: false, error: "Invoice block not found" };
+    }
+    if (!canDeleteInvoiceBlock(block.status, options?.force === true)) {
+      return { success: false, error: "Paid invoice blocks cannot be deleted" };
+    }
+
     await prisma.invoiceBlock.delete({
       where: { id: parsed.data },
     });
@@ -716,5 +770,62 @@ export async function deleteInvoiceBlock(blockId: string) {
   } catch (error) {
     console.error("Failed to delete invoice block:", error);
     return { success: false, error: "Failed to delete invoice block" };
+  }
+}
+
+export async function unlinkProjectFromInvoiceBlock(blockId: string, projectId: string) {
+  const blockParsed = idSchema.safeParse(blockId);
+  const projectParsed = idSchema.safeParse(projectId);
+  if (!blockParsed.success || !projectParsed.success) {
+    return { success: false, error: "Invalid ID format" };
+  }
+
+  try {
+    const block = await prisma.invoiceBlock.findUnique({
+      where: { id: blockParsed.data },
+      select: { status: true },
+    });
+    if (!block) return { success: false, error: "Invoice block not found" };
+    if (block.status !== InvoiceBlockStatus.ACTIVE) {
+      return { success: false, error: "Only active invoice blocks can be updated" };
+    }
+
+    await prisma.invoiceBlockProject.deleteMany({
+      where: { invoiceBlockId: blockParsed.data, projectId: projectParsed.data },
+    });
+    revalidateInvoicePaths();
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to unlink project:", error);
+    return { success: false, error: "Failed to unlink project" };
+  }
+}
+
+export async function removeEntryFromInvoiceBlock(blockId: string, entryId: string) {
+  const blockParsed = idSchema.safeParse(blockId);
+  const entryParsed = idSchema.safeParse(entryId);
+  if (!blockParsed.success || !entryParsed.success) {
+    return { success: false, error: "Invalid ID format" };
+  }
+
+  try {
+    const block = await prisma.invoiceBlock.findUnique({
+      where: { id: blockParsed.data },
+      select: { status: true },
+    });
+    if (!block) return { success: false, error: "Invoice block not found" };
+    if (block.status !== InvoiceBlockStatus.ACTIVE) {
+      return { success: false, error: "Only active invoice blocks can be updated" };
+    }
+
+    await prisma.timeEntry.updateMany({
+      where: { id: entryParsed.data, invoiceBlockId: blockParsed.data },
+      data: { invoiceBlockId: null },
+    });
+    revalidateInvoicePaths();
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to remove entry from block:", error);
+    return { success: false, error: "Failed to remove entry from invoice block" };
   }
 }

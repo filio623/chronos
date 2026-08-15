@@ -82,9 +82,14 @@ export async function getTimeEntries(options: TimeEntryListOptions = {}): Promis
   return { entries, totalCount };
 }
 
+export const activeTimerQuery = {
+  where: { endTime: null },
+  orderBy: { startTime: "desc" as const },
+};
+
 export async function getActiveTimer(): Promise<TimeEntryWithRelations | null> {
   return prisma.timeEntry.findFirst({
-    where: { endTime: null },
+    ...activeTimerQuery,
     include: timeEntryInclude,
   });
 }

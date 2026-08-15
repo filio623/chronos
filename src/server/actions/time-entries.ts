@@ -8,6 +8,13 @@ import { resolveDefaultBillableServer } from "@/server/billable/resolve";
 import { resolveEntryLinkageWithPrisma } from "@/server/invoice-linkage";
 import { findOverlappingEntryIds } from "@/server/data/time-entries";
 import { splitDurations, splitEntryAt } from "@/lib/tracking";
+import {
+  invoiceBlockAfterProjectChange,
+  invoiceBlockOnStop,
+  isPrismaUniqueConflict,
+  startTimerInTransaction,
+} from "@/lib/invoice-integrity";
+import { InvoiceBlockStatus } from "@prisma/client";
 
 // Validation Schemas
 const idSchema = z.string().uuid("Invalid ID format");
@@ -75,34 +82,6 @@ export async function startTimer(
   }
 
   try {
-    const endTime = new Date();
-
-    // 1. Stop any currently running timers first (sanity check)
-    // Fetch active entries first to calculate duration for each
-    const activeEntries = await prisma.timeEntry.findMany({
-      where: { endTime: null },
-      select: { id: true, startTime: true, pausedAt: true, pausedSeconds: true }
-    });
-
-    // Update each active entry with calculated duration
-    if (activeEntries.length > 0) {
-      await Promise.all(
-        activeEntries.map(entry => {
-          const { pausedSeconds, duration } = TimerCalculator.finalizeStop({ ...entry, endTime: null }, endTime);
-          return prisma.timeEntry.update({
-            where: { id: entry.id },
-            data: {
-              endTime,
-              duration,
-              pausedAt: null,
-              pausedSeconds,
-            }
-          });
-        })
-      );
-    }
-
-    // 2. Start new entry
     const { clientId: resolvedClientId, invoiceBlockId: linkedInvoiceBlockId } = await resolveEntryLinkageWithPrisma(prisma, {
       projectId: parsed.data.projectId,
     });
@@ -111,16 +90,27 @@ export async function startTimer(
       clientId: resolvedClientId,
     });
 
-    const created = await prisma.timeEntry.create({
-      data: {
-        projectId: parsed.data.projectId,
-        clientId: resolvedClientId,
-        invoiceBlockId: linkedInvoiceBlockId,
-        description: parsed.data.description,
-        startTime: new Date(),
-        isBillable: resolvedBillable,
-      }
-    });
+    const attempt = async () =>
+      prisma.$transaction(
+        async (tx) =>
+          startTimerInTransaction(tx, {
+            projectId: parsed.data.projectId,
+            description: parsed.data.description,
+            isBillable: resolvedBillable,
+            clientId: resolvedClientId,
+            invoiceBlockId: linkedInvoiceBlockId,
+            now: new Date(),
+          }),
+        { isolationLevel: "Serializable" },
+      );
+
+    let created: { id: string };
+    try {
+      created = await attempt();
+    } catch (error) {
+      if (!isPrismaUniqueConflict(error)) throw error;
+      created = await attempt();
+    }
 
     revalidateTimePaths();
     return { success: true, data: { id: created.id } };
@@ -143,6 +133,22 @@ export async function stopTimer(id: string) {
     const endTime = new Date();
     const { pausedSeconds, duration } = TimerCalculator.finalizeStop(entry, endTime);
 
+    const stamped = entry.invoiceBlockId
+      ? await prisma.invoiceBlock.findUnique({
+          where: { id: entry.invoiceBlockId },
+          select: { status: true },
+        })
+      : null;
+    const linkage = await resolveEntryLinkageWithPrisma(prisma, {
+      projectId: entry.projectId,
+      fallbackClientId: entry.clientId,
+    });
+    const nextBlockId = invoiceBlockOnStop({
+      stampedBlockId: entry.invoiceBlockId,
+      stampedBlockIsActive: stamped?.status === InvoiceBlockStatus.ACTIVE,
+      resolvedBlockId: linkage.invoiceBlockId,
+    });
+
     await prisma.timeEntry.update({
       where: { id: parsed.data },
       data: {
@@ -150,6 +156,8 @@ export async function stopTimer(id: string) {
         duration,
         pausedAt: null,
         pausedSeconds,
+        invoiceBlockId: nextBlockId,
+        clientId: linkage.clientId,
       }
     });
 
@@ -461,7 +469,13 @@ export async function updateTimeEntry(id: string, data: {
         ...(endTime !== undefined && { endTime }),
         ...(isBillable !== undefined && { isBillable }),
         ...(rateOverride !== undefined && { rateOverride }),
-        ...(projectId !== undefined && existingEntry.invoiceBlockId === null && { invoiceBlockId: linkedInvoiceBlockId }),
+        ...(projectId !== undefined && {
+          invoiceBlockId: invoiceBlockAfterProjectChange({
+            projectChanged: projectId !== existingEntry.projectId,
+            previousInvoiceBlockId: existingEntry.invoiceBlockId,
+            resolvedInvoiceBlockId: linkedInvoiceBlockId,
+          }),
+        }),
         ...(newEndTime && { duration }),
         ...(endTime !== undefined && endTime !== null && { pausedAt: null }),
       }

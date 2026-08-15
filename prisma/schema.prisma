@@ -126,6 +126,8 @@ model TimeEntry {
   @@index([projectId])
   @@index([startTime])
   @@index([invoiceBlockId])
+  // Partial unique TimeEntry_one_running_key (endTime IS NULL) is in
+  // prisma/migrations/20260815120000_phase3_uniques
 }
 
 model Tag {
@@ -165,6 +167,8 @@ model InvoiceBlock {
 
   @@index([clientId])
   @@index([status])
+  // Partial unique InvoiceBlock_one_active_per_client_key (status = ACTIVE)
+  // is in prisma/migrations/20260815120000_phase3_uniques
 }
 
 model InvoiceBlockProject {

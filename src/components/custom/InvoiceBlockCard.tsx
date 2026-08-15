@@ -74,11 +74,12 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
                   size="sm"
                   className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600"
                   onClick={() => setIsResetDialogOpen(true)}
+                  aria-label="Complete block"
                 >
                   <RotateCcw size={14} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Reset block</TooltipContent>
+              <TooltipContent>Complete block</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -94,6 +95,11 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
             <span className="text-slate-400 text-sm ml-1">
               / {block.hoursTarget.toFixed(1)}h
             </span>
+            {block.hoursTracked === 0 && (
+              <p className="text-xs text-slate-500 mt-1">
+                0h until work is assigned
+              </p>
+            )}
           </div>
           {isOverBudget ? (
             <span className="text-rose-600 text-sm font-medium">

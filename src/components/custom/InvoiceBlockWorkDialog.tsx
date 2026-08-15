@@ -4,7 +4,12 @@ import React, { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Link2 } from "lucide-react";
 import { InvoiceBlock } from "@/types";
-import { assignWorkToInvoiceBlock, getInvoiceBlockWorkOptions } from "@/server/actions/invoice-blocks";
+import {
+  assignWorkToInvoiceBlock,
+  getInvoiceBlockWorkOptions,
+  removeEntryFromInvoiceBlock,
+  unlinkProjectFromInvoiceBlock,
+} from "@/server/actions/invoice-blocks";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -79,6 +84,10 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
 
   const addableEntries = useMemo(
     () => (options?.entries || []).filter((entry) => !entry.alreadyInBlock),
+    [options]
+  );
+  const assignedEntries = useMemo(
+    () => (options?.entries || []).filter((entry) => entry.alreadyInBlock),
     [options]
   );
   const linkedProjectsCount = useMemo(
@@ -156,6 +165,28 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
   };
   const selectAllEntries = () => {
     setSelectedEntryIds(new Set(addableEntries.map((entry) => entry.id)));
+  };
+
+  const handleUnlinkProject = (projectId: string) => {
+    startTransition(async () => {
+      const result = await unlinkProjectFromInvoiceBlock(block.id, projectId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to unlink project");
+        return;
+      }
+      await loadOptions();
+    });
+  };
+
+  const handleRemoveEntry = (entryId: string) => {
+    startTransition(async () => {
+      const result = await removeEntryFromInvoiceBlock(block.id, entryId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to remove entry");
+        return;
+      }
+      await loadOptions();
+    });
   };
 
   const handleApply = () => {
@@ -244,10 +275,23 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
                         />
                         <span className="font-medium text-slate-700">{project.name}</span>
                         {project.isLinked && (
-                          <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">
-                            <Link2 size={10} />
-                            linked
-                          </span>
+                          <>
+                            <span className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">
+                              <Link2 size={10} />
+                              linked
+                            </span>
+                            <button
+                              type="button"
+                              className="text-[11px] text-slate-500 hover:text-rose-600 hover:underline"
+                              disabled={isPending}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                handleUnlinkProject(project.id);
+                              }}
+                            >
+                              Unlink
+                            </button>
+                          </>
                         )}
                       </div>
                       <div className="text-xs text-slate-500">
@@ -258,6 +302,33 @@ const InvoiceBlockWorkDialog: React.FC<InvoiceBlockWorkDialogProps> = ({ block, 
                 })}
               </div>
             </div>
+
+            {assignedEntries.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Assigned entries</p>
+                <div className="max-h-40 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
+                  {assignedEntries.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm text-slate-700 truncate">{entry.description}</div>
+                        <div className="text-xs text-slate-500">
+                          {formatEntryDate(entry.startTime)}
+                          {entry.projectName ? ` • ${entry.projectName}` : ""}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-[11px] text-slate-500 hover:text-rose-600 hover:underline shrink-0"
+                        disabled={isPending}
+                        onClick={() => handleRemoveEntry(entry.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">

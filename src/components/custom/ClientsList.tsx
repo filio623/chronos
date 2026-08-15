@@ -309,7 +309,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
         </td>
         <td className="px-4 py-3 text-slate-600">{client.currency}</td>
         <td className="px-4 py-3 text-right">
-          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-end gap-2">
             {!hasInvoiceBlock && (
               <div className="flex items-center gap-2">
                 <CreateInvoiceBlockDialog clientId={client.id} clientName={client.name} />

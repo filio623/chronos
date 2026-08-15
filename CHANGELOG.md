@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+### Changed
+- Invoice create actions stay visible on client rows (no hover-only CTAs). Empty blocks say 0h until work is assigned. Reset is labeled Complete. You can unlink a project and remove an entry from an active block.
+
 ### Added
 - Keyboard shortcuts: `s` start/stop, `p` pause/resume, `n` new manual entry, `?` cheat sheet. Shortcuts do not fire while typing in an input.
 - Idle timer bar Continue + recent-task chips start the last project and description immediately.
