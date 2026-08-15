@@ -653,6 +653,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
           onClick={handleTimerAction}
           disabled={isPending || isTimerActionPending}
           className={`min-w-[112px] ${isProjectTimerActive ? '' : 'border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800'}`}
+          aria-label={
+            isProjectTimerActive
+              ? isProjectTimerPaused
+                ? 'Stop paused timer for this project'
+                : 'Stop running timer for this project'
+              : 'Start untitled timer for this project'
+          }
           title={
             isProjectTimerActive
               ? isProjectTimerPaused
@@ -674,18 +681,19 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
         </Button>
       </td>
       <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-2">
           <button
             onClick={handleToggleFavorite}
             className={`${project.isFavorite ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400'}`}
             disabled={isPending}
+            aria-label={project.isFavorite ? "Unfavorite project" : "Favorite project"}
           >
             <Star size={16} fill={project.isFavorite ? "currentColor" : "none"} />
           </button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="text-slate-300 hover:text-slate-600">
+              <button className="text-slate-300 hover:text-slate-600" aria-label="Open project menu">
                 {isPending ? <Loader2 size={16} className="animate-spin" /> : <MoreVertical size={16} />}
               </button>
             </DropdownMenuTrigger>

@@ -200,6 +200,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
                     : "text-slate-400 border-slate-200 bg-white"
                 }`}
                 aria-label={isBillable ? "Billable" : "Non-billable"}
+                aria-pressed={isBillable}
                 title={isBillable ? "Billable" : "Non-billable"}
               >
                 <DollarSign size={16} />
@@ -288,15 +289,18 @@ const TimerBar: React.FC<TimerBarProps> = ({
                 : "text-slate-400 border-slate-200 bg-white"
             }`}
             aria-label={displayBillable ? "Billable" : "Non-billable"}
+            aria-pressed={displayBillable}
             title={displayBillable ? "Billable" : "Non-billable"}
           >
             <DollarSign size={16} />
+            <span className="sr-only">{displayBillable ? "Billable" : "Non-billable"}</span>
           </button>
         </div>
 
         <button
           onClick={handleStart}
           disabled={isStarting}
+          aria-label="Start timer"
           className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-all active:translate-y-px disabled:opacity-50 disabled:pointer-events-none"
         >
           {isStarting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}

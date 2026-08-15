@@ -59,9 +59,9 @@ export async function getProjects(filters?: {
     // Get total count for pagination
     const totalCount = await prisma.project.count({ where });
 
-    // When sorting by hoursUsed, we must fetch ALL matching projects first,
-    // compute hours, sort, then paginate — otherwise pagination happens before
-    // the sort and the page contents are wrong.
+    // #13: hoursUsed sort stays in-memory. Scale limit: fine below ~2k matching
+    // projects. Do not paginate-then-sort — that would return the wrong page.
+    // A SQL hours aggregation is Phase-later if this list grows past that.
     const needsFullFetch = sortBy === 'hoursUsed';
 
     // Fetch projects with client info

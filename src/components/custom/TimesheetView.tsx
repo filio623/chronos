@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Calendar,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -193,18 +192,6 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
         <h2 className="text-2xl font-semibold text-slate-800">Timesheet</h2>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Teammates Dropdown */}
-          <div className="relative group">
-            <button
-              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded text-sm text-slate-400 cursor-not-allowed shadow-sm"
-              disabled
-              title="Teammates (coming soon)"
-            >
-              Teammates
-              <ChevronDown size={14} className="text-slate-400" />
-            </button>
-          </div>
-
           {/* View Toggle */}
           <div className="flex bg-white border border-slate-200 rounded overflow-hidden shadow-sm">
             <button

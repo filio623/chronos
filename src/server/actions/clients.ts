@@ -1,9 +1,10 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
 import { getDefaultWorkspaceId } from "@/lib/workspaces";
 import { z } from "zod";
+import { resolveCreateClientColor } from "@/lib/client-color";
+import { revalidateMutation } from "@/lib/cache-revalidate";
 
 // Color palette for auto-assigning client colors
 const COLOR_PALETTE = [
@@ -16,6 +17,7 @@ const COLOR_PALETTE = [
 const createClientSchema = z.object({
   name: z.string().min(1, "Client name is required").max(100, "Client name must be 100 characters or less"),
   currency: z.string().length(3, "Currency must be a 3-letter code").default("USD"),
+  color: z.string().max(64).optional().nullable(),
   defaultBillable: z.boolean().optional(),
   defaultRate: z.number().nullable().optional(),
 });
@@ -58,6 +60,7 @@ export async function createClient(formData: FormData) {
   const rawData = {
     name: formData.get("name") as string,
     currency: (formData.get("currency") as string) || "USD",
+    color: (formData.get("color") as string) || undefined,
     defaultBillable: formData.get("defaultBillable") === "on" ? true : undefined,
     defaultRate: rawDefaultRate
       ? parseFloat(rawDefaultRate)
@@ -71,7 +74,10 @@ export async function createClient(formData: FormData) {
 
   const { name, currency, defaultBillable, defaultRate } = parsed.data;
   const workspaceId = await getDefaultWorkspaceId();
-  const color = await getNextClientColor();
+  const color = resolveCreateClientColor({
+    submitted: parsed.data.color,
+    nextAuto: await getNextClientColor(),
+  });
 
   try {
     const client = await prisma.client.create({
@@ -85,8 +91,7 @@ export async function createClient(formData: FormData) {
       },
     });
 
-    revalidatePath("/clients");
-    revalidatePath("/");
+    revalidateMutation("client-write");
     return { success: true, data: client };
   } catch (error) {
     console.error("Failed to create client:", error);
@@ -127,8 +132,7 @@ export async function updateClient(id: string, formData: FormData) {
       data: parsed.data,
     });
 
-    revalidatePath("/clients");
-    revalidatePath("/");
+    revalidateMutation("client-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to update client:", error);
@@ -147,8 +151,7 @@ export async function deleteClient(id: string) {
       where: { id: parsed.data },
     });
 
-    revalidatePath("/clients");
-    revalidatePath("/");
+    revalidateMutation("client-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete client:", error);

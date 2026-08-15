@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidateMutation } from "@/lib/cache-revalidate";
 import { InvoiceBlockStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getBlockHours } from "@/server/data/block-hours-calculator";
@@ -74,9 +74,7 @@ function entryBelongsToClient(
 }
 
 function revalidateInvoicePaths() {
-  revalidatePath("/");
-  revalidatePath("/clients");
-  revalidatePath("/reports");
+  revalidateMutation("invoice-write");
 }
 
 /**
@@ -561,7 +559,7 @@ export async function assignWorkToInvoiceBlock(input: {
       };
     });
 
-    revalidateInvoicePaths();
+    revalidateMutation("assign-work");
 
     return {
       success: true,

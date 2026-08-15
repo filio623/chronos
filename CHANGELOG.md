@@ -7,6 +7,10 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 ## [Unreleased]
 
 ### Changed
+- Pause and resume no longer refresh reports. Assigning invoice work now refreshes tracker, projects, and clients.
+- Reports only shows the working Summary view; dead Invoice/Export/Print/Share buttons and fake tabs are gone. Sidebar nav uses links, retainers are clients with an active block, and the unused Settings control is gone. Dashboard no longer says “Real-time DB Data”. Timesheet Teammates is gone.
+- Creating a client stores the color you picked (or auto-assigns if you skip it).
+- Row actions stay visible on touch. Billable shows a Billable/Non-billable label, and timer/row icon buttons have accessible names.
 - Invoice create actions stay visible on client rows (no hover-only CTAs). Empty blocks say 0h until work is assigned. Reset is labeled Complete. You can unlink a project and remove an entry from an active block.
 
 ### Added

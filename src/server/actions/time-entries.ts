@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidateMutation } from "@/lib/cache-revalidate";
 import { z } from "zod";
 import { TimerCalculator } from "@/lib/timer-calculator";
 import { resolveDefaultBillableServer } from "@/server/billable/resolve";
@@ -60,11 +60,7 @@ export type TimeEntrySnapshot = {
 };
 
 function revalidateTimePaths() {
-  revalidatePath("/");
-  revalidatePath("/projects");
-  revalidatePath("/tracker");
-  revalidatePath("/timesheet");
-  revalidatePath("/reports");
+  revalidateMutation("entry-write");
 }
 
 export async function startTimer(
@@ -112,7 +108,7 @@ export async function startTimer(
       created = await attempt();
     }
 
-    revalidateTimePaths();
+    revalidateMutation("start");
     return { success: true, data: { id: created.id } };
   } catch (error) {
     console.error("Failed to start timer:", error);
@@ -161,7 +157,7 @@ export async function stopTimer(id: string) {
       }
     });
 
-    revalidateTimePaths();
+    revalidateMutation("stop");
     return { success: true };
   } catch (error) {
     console.error("Failed to stop timer:", error);
@@ -508,7 +504,7 @@ export async function pauseTimer(id: string) {
       }
     });
 
-    revalidateTimePaths();
+    revalidateMutation("pause");
     return { success: true };
   } catch (error) {
     console.error("Failed to pause timer:", error);
@@ -539,7 +535,7 @@ export async function resumeTimer(id: string) {
       }
     });
 
-    revalidateTimePaths();
+    revalidateMutation("resume");
     return { success: true };
   } catch (error) {
     console.error("Failed to resume timer:", error);

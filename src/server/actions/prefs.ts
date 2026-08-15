@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidateMutation } from "@/lib/cache-revalidate";
 import { parseWeekStartsOn } from "@/lib/time";
 import { parseRoundingRule, serializeRoundingRule } from "@/lib/tracking";
 import { ROUNDING_COOKIE, WEEK_STARTS_COOKIE } from "@/lib/prefs";
@@ -25,9 +25,6 @@ export async function setTrackingPrefs(input: {
       maxAge: 60 * 60 * 24 * 365,
     });
   }
-  revalidatePath("/");
-  revalidatePath("/timesheet");
-  revalidatePath("/reports");
-  revalidatePath("/tracker");
+  revalidateMutation("prefs");
   return { success: true };
 }

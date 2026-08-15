@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useCallback, useRef, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { toast } from "sonner";
 import Sidebar from "@/components/custom/Sidebar";
@@ -75,15 +75,9 @@ export default function AppShell({
   rounding = { incrementMinutes: 0, mode: "none" },
   children,
 }: AppShellProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const currentView = pathnameToView(pathname);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  const navigateTo = useCallback((view: string) => {
-    const path = view === "dashboard" ? "/" : `/${view}`;
-    router.push(path);
-  }, [router]);
 
   const serverStatus = timerStatusFromEntry(activeTimer);
   const [intent, setIntent] = useState<TimerChromeStatus | null>(null);
@@ -253,9 +247,9 @@ export default function AppShell({
     if (!result.success) toast.error(result.error || "Failed to update timer");
   };
 
-  const handleNavigateToProject = (projectId: string) => {
-    router.push(`/projects?highlight=${projectId}`);
-  };
+  const retainers = initialClients
+    .filter((client) => client.activeInvoiceBlock)
+    .map((client) => ({ id: client.id, name: client.name, color: client.color }));
 
   const confirmReplace = async () => {
     const queued = queuedStart;
@@ -342,9 +336,7 @@ export default function AppShell({
       <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
         <Sidebar
           currentView={currentView}
-          onViewChange={navigateTo}
-          projects={initialProjects}
-          onRetainerClick={handleNavigateToProject}
+          retainers={retainers}
           mobileOpen={mobileSidebarOpen}
           onMobileOpenChange={setMobileSidebarOpen}
         />

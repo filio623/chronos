@@ -4,10 +4,6 @@ import React from 'react';
 import {
   Calendar,
   ChevronDown,
-  Printer,
-  Share2,
-  Download,
-  FileText,
   CalendarDays,
 } from 'lucide-react';
 import {
@@ -44,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { tailwindToHex } from '@/lib/colors';
 
@@ -86,15 +82,9 @@ const getHexColor = (color: string) => {
 };
 
 type DatePreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30Days' | 'thisYear' | 'custom';
-type ReportTab = 'summary' | 'detailed' | 'weekly' | 'shared';
 type GroupBy = 'project' | 'client' | 'day';
 
 const DATE_PRESETS: DatePreset[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30Days', 'thisYear', 'custom'];
-
-function parseReportTab(value: string | null): ReportTab {
-  if (value === 'summary' || value === 'detailed' || value === 'weekly' || value === 'shared') return value;
-  return 'summary';
-}
 
 function parseGroupBy(value: string | null): GroupBy {
   if (value === 'project' || value === 'client' || value === 'day') return value;
@@ -109,7 +99,6 @@ function parseDatePreset(value: string | null): DatePreset {
 const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients = [], weekStartsOn = 0 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = parseReportTab(searchParams.get('reportTab'));
   const datePreset = parseDatePreset(searchParams.get('preset'));
   const groupBy = parseGroupBy(searchParams.get('groupBy'));
   const selectedProject = searchParams.get('project');
@@ -246,28 +235,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
         <div className="flex items-center gap-6">
           <h2 className="text-2xl font-semibold text-slate-800">Reports</h2>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => {
-              const next = v as typeof activeTab;
-              updateParams({ reportTab: next });
-            }}
-          >
-            <TabsList className="bg-slate-200/50">
-              <TabsTrigger value="summary" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600">
-                Summary
-              </TabsTrigger>
-              <TabsTrigger value="detailed" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
-                Detailed
-              </TabsTrigger>
-              <TabsTrigger value="weekly" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
-                Weekly
-              </TabsTrigger>
-              <TabsTrigger value="shared" disabled className="opacity-50 cursor-not-allowed" title="Coming soon">
-                Shared
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <p className="text-sm text-slate-500">Summary</p>
         </div>
 
         {/* Date Range Picker */}
@@ -390,7 +358,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
       </div>
 
       {/* Summary Tab Content */}
-      {activeTab === 'summary' && (
+      {(
         <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
 
           {/* Summary Strip */}
@@ -415,13 +383,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <ActionIcon icon={<FileText size={16} />} label="Invoice" />
-              <div className="w-px h-4 bg-slate-300 mx-1"></div>
-              <ActionIcon icon={<Download size={16} />} label="Export" />
-              <ActionIcon icon={<Printer size={16} />} />
-              <ActionIcon icon={<Share2 size={16} />} />
-            </div>
+
           </div>
 
           {/* Bar Chart Area */}
@@ -569,15 +531,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
     </div>
   );
 };
-
-// --- Sub-components ---
-
-const ActionIcon: React.FC<{ icon: React.ReactNode, label?: string }> = ({ icon, label }) => (
-  <button className="flex items-center gap-2 px-2 py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium">
-    {icon}
-    {label}
-  </button>
-);
 
 const ReportRow: React.FC<{
   label: string,

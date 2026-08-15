@@ -332,11 +332,14 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, projects = 
         <button
           type="button"
           onClick={handleBillableToggle}
-          className={`flex items-center justify-center w-5 ${localBillable ? 'text-blue-500' : 'text-slate-200 hover:text-slate-400'} transition-colors`}
+          className={`flex items-center gap-0.5 text-[10px] font-medium ${localBillable ? 'text-blue-600' : 'text-slate-400'}`}
           title={localBillable ? "Billable (click to toggle)" : "Non-billable (click to toggle)"}
+          aria-label={localBillable ? "Billable" : "Non-billable"}
+          aria-pressed={localBillable}
           disabled={isPending}
         >
           <DollarSign size={16} />
+          <span>{localBillable ? "Billable" : "Non-billable"}</span>
         </button>
 
         {/* Rate */}
@@ -417,6 +420,7 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, projects = 
                 disabled={isPending}
                 className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50"
                 title="Restart"
+                aria-label="Restart"
             >
                 <Play size={18} fill="currentColor" className="opacity-80" />
             </button>

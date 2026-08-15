@@ -50,7 +50,6 @@ export default function DashboardView({
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Budget Overview</h2>
-          <span className="text-xs font-medium text-slate-400">Real-time DB Data</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">

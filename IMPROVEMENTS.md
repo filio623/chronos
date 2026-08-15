@@ -705,7 +705,7 @@ succeeded. Scratch: `phase3-browser.txt`.
 
 Stop looking finished where we are not. Tighten invalidation.
 
-### [ ] 11. Cache invalidation is a sledgehammer
+### [x] 11. Cache invalidation is a sledgehammer
 
 Every action `revalidatePath`s ~5 routes (34 calls in `time-entries.ts`).
 Pause busts reports. Invoice actions skip `/tracker` and `/projects`.
@@ -715,6 +715,12 @@ Pause busts reports. Invoice actions skip `/tracker` and `/projects`.
 **Done when:** pause/resume do not revalidate reports; assigning work to a
 block refreshes tracker/projects/clients that show those hours.
 
+**Evidence:** `cachePlanFor` in `src/lib/cache-tags.ts`. pause/resume
+tags=`timer`, paths=`/`, `/tracker` (no `/reports`). assign-work paths
+include `/tracker`, `/projects`, `/clients`. Actions call
+`revalidateMutation` (`revalidateTag` + scoped `revalidatePath`). Tests
+in `src/lib/cache-tags.test.ts`.
+
 ---
 
 ### [ ] 12. (moved) Isolate the ticking clock → Phase 2 #21
@@ -723,7 +729,7 @@ Kept the original number in Phase 2 so older notes still resolve.
 
 ---
 
-### [ ] 13. `getProjects` sorts by hours in memory
+### [x] 13. `getProjects` sorts by hours in memory
 
 `src/server/data/projects.ts` — `sortBy=hoursUsed` fetches every match,
 computes, sorts, slices. Fine at current scale.
@@ -732,9 +738,13 @@ computes, sorts, slices. Fine at current scale.
 it) **or** hours are aggregated in SQL and pagination stays correct. Do not
 “fix” this with a wrong paginate-then-sort.
 
+**Evidence:** Left the full-fetch-then-sort-then-slice. Comment in
+`src/server/data/projects.ts`: scale limit ~2k matching projects. No
+paginate-then-sort.
+
 ---
 
-### [ ] 27. Reports / sidebar / settings look finished and are not
+### [x] 27. Reports / sidebar / settings look finished and are not
 
 `ReportsView.tsx` — Invoice / Export / Print / Share have no `onClick`.
 Detailed / Weekly / Shared tabs are disabled. Row currency is hardcoded
@@ -749,17 +759,24 @@ list is active invoice-block clients (or the heading is “Projects”);
 Settings is removed or opens something; sidebar nav uses `<Link>`; dashboard
 jargon is gone; Teammates is gone. Browser-verified.
 
+**Evidence:** Reports dead actions and disabled tabs removed. Sidebar
+`<Link>` nav; retainers from `clients` with `activeInvoiceBlock`; Settings
+icon gone. Dashboard jargon and Timesheet Teammates removed.
+
 ---
 
-### [ ] 28. `createClient` ignores the color you picked
+### [x] 28. `createClient` ignores the color you picked
 
 `ClientsList` sends `color`; `createClient` always runs `getNextClientColor()`.
 
 **Done when:** the chosen swatch is stored; omitting color still auto-assigns.
 
+**Evidence:** `createClient` uses `resolveCreateClientColor`. Form already
+sends `color`. Tests: chosen swatch kept; blank/null uses `nextAuto`.
+
 ---
 
-### [ ] 29. Hover-only actions and color-only billable
+### [x] 29. Hover-only actions and color-only billable
 
 Row kebab / invoice CTAs / favorite star use `opacity-0 group-hover`.
 Billable is a `$` icon, blue vs slate-200. Many icon buttons have `title`
@@ -768,6 +785,10 @@ only.
 **Done when:** actions are visible on touch (always-visible or a real menu
 control); billable has a non-color cue; timer Pause/Stop/Start and row
 icon buttons have `aria-label`. Browser-verified at a narrow viewport.
+
+**Evidence:** Project row kebab/star no longer hover-only. Billable shows
+“Billable”/“Non-billable” + `aria-pressed`. Start/Pause/Stop/Restart and
+row menus have `aria-label`.
 
 ---
 

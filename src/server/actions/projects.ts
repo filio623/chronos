@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidateMutation } from "@/lib/cache-revalidate";
 import { getDefaultWorkspaceId } from "@/lib/workspaces";
 import { BudgetType, ProjectAccess, BudgetReset } from "@prisma/client";
 import { z } from "zod";
@@ -94,8 +94,7 @@ export async function createProject(formData: FormData) {
       },
     });
 
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true, data: project };
   } catch (error) {
     console.error("Failed to create project:", error);
@@ -113,8 +112,7 @@ export async function deleteProject(id: string) {
     await prisma.project.delete({
       where: { id: parsed.data }
     });
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete project:", error);
@@ -167,8 +165,7 @@ export async function updateProject(id: string, formData: FormData) {
       },
     });
 
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to update project:", error);
@@ -197,8 +194,7 @@ export async function toggleFavorite(id: string) {
       data: { isFavorite: !project.isFavorite },
     });
 
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to toggle favorite:", error);
@@ -218,8 +214,7 @@ export async function archiveProject(id: string) {
       data: { isArchived: true },
     });
 
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to archive project:", error);
@@ -239,8 +234,7 @@ export async function unarchiveProject(id: string) {
       data: { isArchived: false },
     });
 
-    revalidatePath("/projects");
-    revalidatePath("/");
+    revalidateMutation("project-write");
     return { success: true };
   } catch (error) {
     console.error("Failed to unarchive project:", error);

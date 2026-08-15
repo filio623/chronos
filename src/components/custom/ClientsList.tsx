@@ -319,7 +319,7 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-slate-300 hover:text-slate-600 p-1">
+                <button className="text-slate-300 hover:text-slate-600 p-1" aria-label="Open client menu">
                   {isPending ? <Loader2 size={16} className="animate-spin" /> : <MoreVertical size={16} />}
                 </button>
               </DropdownMenuTrigger>
