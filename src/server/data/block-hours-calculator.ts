@@ -62,16 +62,14 @@ export async function getClientAllTimeHoursMap(clientIds: string[]): Promise<Map
   if (clientIds.length === 0) return map;
 
   // Two parallel groupBys, kept mutually exclusive so entries with BOTH
-  // clientId and projectId aren't counted twice. Project-attached entries
-  // flow through projectRows (keyed by project.clientId); only project-less
-  // entries go through directRows. This matches the realistic case where
-  // entry.clientId is resolved from project.clientId at creation time.
+  // clientId and projectId aren't counted twice. directRows preserves
+  // entry-level client attribution. projectRows only handles fallback
+  // attribution for entries that have no clientId on the entry itself.
   const [directRows, projectRows] = await Promise.all([
     prisma.timeEntry.groupBy({
       by: ["clientId"],
       where: {
         clientId: { in: clientIds },
-        projectId: null,
         endTime: { not: null },
       },
       _sum: { duration: true },
@@ -79,6 +77,7 @@ export async function getClientAllTimeHoursMap(clientIds: string[]): Promise<Map
     prisma.timeEntry.groupBy({
       by: ["projectId"],
       where: {
+        clientId: null,
         endTime: { not: null },
         project: { clientId: { in: clientIds } },
       },
