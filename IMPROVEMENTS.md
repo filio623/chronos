@@ -792,7 +792,7 @@ row menus have `aria-label`.
 
 ---
 
-### [ ] 14. Dark mode is half-wired
+### [x] 14. Dark mode is half-wired
 
 `next-themes` installed, 28 `dark:` variants in `ui/*`, no `ThemeProvider`,
 `Toaster` is `theme="light"`, no `dark:` in `components/custom/`.
@@ -801,9 +801,16 @@ row menus have `aria-label`.
 shell + custom views are usable in dark (or `next-themes` is removed so we
 stop implying a toggle). Prefer ship a real toggle over deleting.
 
+**Evidence:** `ThemeProvider` in root layout; `Toaster` from
+`ui/sonner` follows `useTheme()`. Shell `ThemeToggle` offers Light /
+Dark / System. Timesheet descriptions/totals, grid header, Reports
+row/donut/group-by, and tracker row descriptions have `dark:` text and
+surfaces. Browser (desktop + 390): after Dark, those texts are
+lab(L≈96) on dark backgrounds (header lab L≈16, donut L≈8).
+
 ---
 
-### [ ] 15. Custom components bypass the design system
+### [x] 15. Custom components bypass the design system
 
 `TimerBar` and others use raw `<button>` + hardcoded `bg-indigo-600` /
 `text-slate-900` instead of `src/components/ui/button`. That is why #14 is
@@ -812,6 +819,10 @@ expensive.
 **Done when:** new and touched custom controls use the shared `Button` /
 `Input` / `Select`. Do this as you touch files, not as a rewrite of every
 view in one PR.
+
+**Evidence:** `ThemeToggle` uses shared `Button`. Timer bar description
+is `Input`; Start is shared `Button`. Other views already used shared
+controls where we touched them.
 
 ---
 

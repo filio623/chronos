@@ -153,7 +153,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTi
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-slate-800">Projects</h2>
+        <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Projects</h2>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -241,7 +241,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTi
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3">
+      <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col xl:flex-row gap-3">
 
         {/* Dropdowns Group */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
@@ -297,11 +297,11 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTi
       </div>
 
       {/* Table Container */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <SortableHeader
                   label="Name"
                   column="name"
@@ -356,7 +356,7 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTi
         </div>
 
         {/* Footer / Pagination */}
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
           <span className="text-xs text-slate-500">
             Showing {Math.min((currentPage - 1) * pageSize + 1, totalCount)} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount} projects
           </span>
@@ -586,9 +586,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
     <>
     <tr
       ref={rowRef}
-      className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60' : ''}`}
+      className={`group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors text-sm text-slate-700 dark:text-slate-200 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60 dark:bg-indigo-950/40' : ''}`}
     >
-      <td className="px-4 py-3 font-medium text-slate-900">
+      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
         <div className="flex items-center gap-2">
           <InlineColorPicker value={project.color} onChange={handleColorChange} disabled={isPending} />
           {project.name}

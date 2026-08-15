@@ -233,7 +233,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
       {/* Top Header: Title, Tabs, Date Picker */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <h2 className="text-2xl font-semibold text-slate-800">Reports</h2>
+          <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Reports</h2>
 
           <p className="text-sm text-slate-500">Summary</p>
         </div>
@@ -289,7 +289,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col xl:flex-row justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-slate-400 uppercase mr-2 tracking-wide">Filter</span>
 
@@ -359,24 +359,24 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
 
       {/* Summary Tab Content */}
       {(
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
 
           {/* Summary Strip */}
-          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-6">
+          <div className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-8 w-full xl:w-auto justify-between xl:justify-start">
               <div>
                 <div className="text-xs text-slate-500 font-medium mb-1">Total Time</div>
-                <div className="text-2xl font-mono font-bold text-slate-800">{formatDuration(data.summary.totalSeconds)}</div>
+                <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100">{formatDuration(data.summary.totalSeconds)}</div>
               </div>
               <div className="w-px h-10 bg-slate-200 hidden xl:block"></div>
               <div>
                 <div className="text-xs text-slate-500 font-medium mb-1">Billable Time</div>
-                <div className="text-2xl font-mono font-bold text-slate-800">{formatDuration(data.summary.billableSeconds)}</div>
+                <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100">{formatDuration(data.summary.billableSeconds)}</div>
               </div>
               <div className="w-px h-10 bg-slate-200 hidden xl:block"></div>
               <div>
                 <div className="text-xs text-slate-500 font-medium mb-1">Amount</div>
-                <div className="text-2xl font-mono font-bold text-slate-800 flex items-baseline">
+                <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100 flex items-baseline">
                   <span className="text-sm text-slate-500 mr-1">{selectedClientData?.currency || 'USD'}</span>
                   {data.summary.totalAmount.toFixed(2)}
                 </div>
@@ -428,7 +428,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
           </div>
 
           {/* Group By Controls */}
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+          <div data-testid="report-groupby" className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
             <span className="text-xs text-slate-500 font-medium">Group by:</span>
             <Select
               value={groupBy}
@@ -468,7 +468,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
             </div>
 
             {/* Right: Donut Chart */}
-            <div className="w-full lg:w-[400px] bg-white flex items-center justify-center p-8 relative">
+            <div data-testid="report-donut" className="w-full lg:w-[400px] bg-white dark:bg-slate-900 flex items-center justify-center p-8 relative">
               {data.projectDistribution.length > 0 ? (
                 <div className="w-full">
                   <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Distribution</div>
@@ -496,7 +496,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <div className="text-xs text-slate-500">Total</div>
-                      <div className="text-lg font-mono font-semibold text-slate-800">
+                      <div className="text-lg font-mono font-semibold text-slate-800 dark:text-slate-100">
                         {totalDistributionHours.toFixed(2)}h
                       </div>
                     </div>
@@ -505,14 +505,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
                     {data.projectDistribution.map((item, idx) => {
                       const percent = totalDistributionHours > 0 ? (item.hours / totalDistributionHours) * 100 : 0;
                       return (
-                        <div key={`legend-${idx}`} className="flex items-center justify-between text-xs text-slate-600">
+                        <div key={`legend-${idx}`} className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getHexColor(item.color) }}></span>
                             <span className="truncate">{formatDistributionLabel(item.name)}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-slate-400">{percent.toFixed(0)}%</span>
-                            <span className="font-mono text-slate-700">{item.hours.toFixed(2)}h</span>
+                            <span className="font-mono text-slate-700 dark:text-slate-200">{item.hours.toFixed(2)}h</span>
                           </div>
                         </div>
                       );
@@ -539,8 +539,8 @@ const ReportRow: React.FC<{
   amount: string,
   color: string,
 }> = ({ label, sublabel, time, amount, color }) => (
-  <div className="border-b border-slate-100 bg-white">
-    <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 cursor-pointer group transition-colors">
+  <div className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer group transition-colors">
       <div className="flex items-center gap-3">
         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
         <div>
@@ -549,8 +549,8 @@ const ReportRow: React.FC<{
         </div>
       </div>
       <div className="flex items-center gap-8 text-right">
-        <div className="font-mono text-sm font-medium text-slate-800">{time}</div>
-        <div className="font-mono text-sm text-slate-400 w-20">USD<span className="text-slate-700 ml-1">{amount}</span></div>
+        <div data-testid="report-row-time" className="font-mono text-sm font-medium text-slate-800 dark:text-slate-100">{time}</div>
+        <div className="font-mono text-sm text-slate-400 w-20">USD<span data-testid="report-row-amount" className="text-slate-700 dark:text-slate-200 ml-1">{amount}</span></div>
       </div>
     </div>
   </div>
@@ -568,8 +568,8 @@ const StackedTooltip: React.FC<MinimalTooltip> = ({ active, payload, label }) =>
   if (visible.length === 0) return null;
 
   return (
-    <div className="rounded-lg bg-white shadow-md border border-slate-100 px-3 py-2 text-xs text-slate-700">
-      <div className="font-medium text-slate-900 mb-1">{String(label)}</div>
+    <div className="rounded-lg bg-white dark:bg-slate-800 shadow-md border border-slate-100 dark:border-slate-700 px-3 py-2 text-xs text-slate-700 dark:text-slate-200">
+      <div className="font-medium text-slate-900 dark:text-slate-100 mb-1">{String(label)}</div>
       <div className="space-y-1">
         {visible.map((item) => (
           <div key={String(item.name)} className="flex items-center justify-between gap-3">

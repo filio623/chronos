@@ -47,7 +47,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project, onClick, highlighted =
   const clickable = Boolean(onClick);
   const Container: React.ElementType = clickable ? 'button' : 'div';
   const baseClass =
-    'bg-white rounded-lg border border-slate-200 p-4 shadow-sm transition-shadow relative overflow-hidden group text-left';
+    'bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4 shadow-sm transition-shadow relative overflow-hidden group text-left';
   const clickableClass = clickable
     ? 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60'
     : '';
@@ -69,7 +69,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ project, onClick, highlighted =
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full" style={colorDotStyle}></span>
-            <h3 className="text-sm font-semibold text-slate-900 leading-tight">{project.name}</h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">{project.name}</h3>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">{project.client}</p>
         </div>

@@ -53,13 +53,13 @@ function SidebarContent({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="h-full flex flex-col bg-slate-50">
+    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950">
       <div className="h-14 flex items-center px-4 border-b border-transparent">
         <Link href="/" onClick={onNavigate} className="flex items-center gap-2">
           <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
             <div className="w-2 h-2 bg-white rounded-full"></div>
           </div>
-          <span className="font-bold text-slate-900 text-sm tracking-tight">Chronos</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm tracking-tight">Chronos</span>
         </Link>
       </div>
 
@@ -75,8 +75,8 @@ function SidebarContent({
               className={`
                 w-full flex items-center gap-3 px-3 py-1.5 text-sm rounded-md transition-all duration-200
                 ${active
-                  ? "bg-white text-slate-900 shadow-sm border border-slate-200 font-medium"
-                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-slate-800 font-medium"
+                  : "text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                 }
               `}
             >
@@ -106,7 +106,7 @@ function SidebarContent({
                   onRetainerClick?.(retainer.id);
                   onNavigate?.();
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm rounded-md transition-colors text-left ${isHighlighted ? "bg-indigo-50 text-indigo-900 border border-indigo-200 shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}
+                className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm rounded-md transition-colors text-left ${isHighlighted ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-900 dark:text-indigo-100 border border-indigo-200 dark:border-indigo-800 shadow-sm" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"}`}
               >
                 <span
                   className="w-2 h-2 rounded-full"
@@ -119,13 +119,13 @@ function SidebarContent({
         )}
       </div>
 
-      <div className="p-3 border-t border-slate-200">
+      <div className="p-3 border-t border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3 w-full p-2 text-left">
-          <div className="w-8 h-8 rounded-md bg-slate-100 flex-shrink-0 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0 flex items-center justify-center">
             <Building2 size={16} className="text-slate-500" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-900 truncate">Workspace</p>
+            <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">Workspace</p>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <aside className="w-[250px] border-r border-slate-200 h-screen fixed left-0 top-0 z-20">
+    <aside className="w-[250px] border-r border-slate-200 dark:border-slate-800 h-screen fixed left-0 top-0 z-20">
       <SidebarContent {...contentProps} />
     </aside>
   );

@@ -91,7 +91,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
 
       {/* Header */}
-      <h2 className="text-2xl font-semibold text-slate-800">Clients</h2>
+      <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Clients</h2>
 
       {/* Controls Bar */}
       <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
@@ -136,11 +136,11 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
       </div>
 
       {/* Table Container */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Hours Tracked</th>
                 <th className="px-4 py-3">Budget</th>
@@ -260,14 +260,14 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, isExpanded, onToggleExpan
     <>
       <tr
         ref={rowRef}
-        className={`group hover:bg-slate-50/80 transition-colors text-sm text-slate-700 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60' : ''}`}
+        className={`group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors text-sm text-slate-700 dark:text-slate-200 ${isPending ? 'opacity-50 grayscale' : ''} ${highlighted ? 'ring-2 ring-indigo-300/70 bg-indigo-50/60 dark:bg-indigo-950/40' : ''}`}
       >
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <InlineColorPicker value={client.color || 'text-slate-600'} onChange={handleColorChange} disabled={isPending} />
             <button
               onClick={onToggleExpand}
-              className="font-medium text-slate-900 hover:text-indigo-600 flex items-center gap-1"
+              className="font-medium text-slate-900 dark:text-slate-100 hover:text-indigo-600 flex items-center gap-1"
             >
               {client.name}
               {hasInvoiceBlock && (

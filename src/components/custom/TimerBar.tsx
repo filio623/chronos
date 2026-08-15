@@ -160,7 +160,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
   if (isActive) {
     const title = runDescription || (activeProject ? "Untitled" : "Untitled task");
     return (
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-indigo-100 px-4 md:px-6 py-3 shadow-sm transition-all duration-300">
+      <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-indigo-100 dark:border-indigo-900 px-4 md:px-6 py-3 shadow-sm transition-all duration-300">
         <div className="flex items-center justify-between max-w-5xl mx-auto gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {elapsed}
@@ -197,7 +197,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
                 className={`flex items-center justify-center w-9 h-9 rounded-md border ${
                   isBillable
                     ? "text-blue-600 border-blue-200 bg-blue-50"
-                    : "text-slate-400 border-slate-200 bg-white"
+                    : "text-slate-400 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                 }`}
                 aria-label={isBillable ? "Billable" : "Non-billable"}
                 aria-pressed={isBillable}
@@ -251,13 +251,13 @@ const TimerBar: React.FC<TimerBarProps> = ({
   }
 
   return (
-    <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 md:px-6 py-3 shadow-sm">
+    <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3 shadow-sm">
       <div className="max-w-5xl mx-auto flex items-center gap-2">
         <div className="relative flex-1 flex items-center gap-2">
-          <input
+          <Input
             type="text"
             placeholder="What are you working on?"
-            className="flex-1 bg-slate-50 border border-slate-200 rounded-md py-2.5 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            className="flex-1 h-[42px] bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
             value={taskInput}
             onChange={(e) => setTaskInput(e.target.value)}
             disabled={isStarting}
@@ -297,15 +297,16 @@ const TimerBar: React.FC<TimerBarProps> = ({
           </button>
         </div>
 
-        <button
+        <Button
+          type="button"
           onClick={handleStart}
           disabled={isStarting}
           aria-label="Start timer"
-          className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-all active:translate-y-px disabled:opacity-50 disabled:pointer-events-none"
+          className="h-[42px] px-6 bg-indigo-600 hover:bg-indigo-700 text-white"
         >
           {isStarting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
           Start
-        </button>
+        </Button>
       </div>
 
       {(lastRecent || recents.length > 0) && (
@@ -328,7 +329,7 @@ const TimerBar: React.FC<TimerBarProps> = ({
               type="button"
               disabled={isStarting}
               onClick={() => handleContinue(task)}
-              className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 max-w-[180px] truncate"
+              className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-700 dark:hover:text-indigo-300 max-w-[180px] truncate"
               title={task.description}
             >
               {task.description || projects.find((p) => p.id === task.projectId)?.name || "Untitled"}

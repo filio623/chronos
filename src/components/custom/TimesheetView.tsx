@@ -189,11 +189,11 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
       {/* Top Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-slate-800">Timesheet</h2>
+        <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Timesheet</h2>
 
         <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex bg-white border border-slate-200 rounded overflow-hidden shadow-sm">
+          <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded overflow-hidden shadow-sm">
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 border-r border-slate-200 ${viewMode === 'list' ? 'text-indigo-600 bg-slate-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
@@ -211,7 +211,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
           </div>
 
           {/* Date Navigator */}
-          <div className="flex items-center bg-white border border-slate-200 rounded shadow-sm">
+          <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded shadow-sm">
             <label className="flex items-center gap-2 px-3 py-2 border-r border-slate-200 cursor-pointer hover:bg-slate-50 min-w-[160px]">
               <Calendar size={16} className="text-slate-400" />
               <span className="text-sm text-slate-700 font-medium">
@@ -261,7 +261,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
       </div>
 
       {viewMode === 'list' ? (
-        <div className="bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-lg overflow-hidden">
           <div className="divide-y divide-slate-100">
             {weekEntries.length === 0 && (
               <div className="p-10 text-center text-slate-400 text-sm">
@@ -276,7 +276,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
               return (
                 <div key={entry.id} className="flex items-center justify-between px-4 py-3">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-medium text-slate-800 truncate">
+                    <span data-testid="timesheet-entry-desc" className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                       {entry.description || 'Manual entry'}
                     </span>
                     <span className="text-xs text-slate-500">
@@ -285,7 +285,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                   </div>
                   <div className="flex items-center gap-4 text-xs text-slate-500">
                     <span>{formatLocalTime(entry.startTime)} – {formatLocalTime(entry.endTime)}</span>
-                    <span className="font-mono text-slate-700">{entry.duration}</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-200">{entry.duration}</span>
                   </div>
                 </div>
               );
@@ -293,21 +293,21 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
           </div>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 text-xs font-medium text-slate-500">
             Weekly summary
           </div>
 
         {/* Header Row */}
-        <div className="bg-slate-100 border-b border-slate-200 flex text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        <div data-testid="timesheet-grid-header" className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
           <div className="flex-1 px-4 py-3 min-w-[200px]">Projects</div>
           {weekDays.map((d, i) => (
-            <div key={i} className="w-24 px-2 py-3 text-center border-l border-slate-200">
+            <div key={i} className="w-24 px-2 py-3 text-center border-l border-slate-200 dark:border-slate-700">
               <div className="text-[10px] text-slate-400">{d.day}</div>
               <div>{d.date}</div>
             </div>
           ))}
-          <div className="w-24 px-2 py-3 text-center border-l border-slate-200 bg-slate-50">Total</div>
+          <div className="w-24 px-2 py-3 text-center border-l border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">Total</div>
         </div>
 
         {/* Rows */}
@@ -315,11 +315,11 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
           {rows.map((row) => {
             const projectInfo = row.projectId ? getProjectName(row.projectId) : null;
             return (
-              <div key={row.id} className="flex items-center hover:bg-slate-50 transition-colors">
+              <div key={row.id} className="flex items-center hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors">
                 {/* Project Cell */}
                 <div className="flex-1 px-4 py-3 min-w-[200px]">
                   {projectInfo ? (
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
                       <span className={`w-2 h-2 rounded-full ${projectInfo.color.replace('text-', 'bg-')}`}></span>
                       {projectInfo.name}
                       <span className="text-slate-400 font-normal">- {projectInfo.client}</span>
@@ -332,15 +332,15 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                 {/* Value Cells (read-only) */}
                 {row.values.map((val, idx) => (
                   <div key={idx} className="w-24 px-2 py-3 border-l border-slate-100 flex justify-center">
-                    <div className="w-full text-center text-sm text-slate-600 tabular-nums">
+                    <div className="w-full text-center text-sm text-slate-600 dark:text-slate-300 tabular-nums">
                       {val || '0:00'}
                     </div>
                   </div>
                 ))}
 
                 {/* Row Total */}
-                <div className="w-24 px-2 py-3 border-l border-slate-100 bg-slate-50/50 flex items-center justify-center">
-                  <span className="text-sm font-mono font-medium text-slate-600">
+                <div className="w-24 px-2 py-3 border-l border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-center">
+                  <span className="text-sm font-mono font-medium text-slate-600 dark:text-slate-200">
                     {calculateRowTotal(row.values)}
                   </span>
                 </div>
@@ -350,14 +350,14 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
         </div>
 
         {/* Footer Totals */}
-        <div className="bg-slate-50 border-t border-slate-200 flex items-center">
+        <div className="bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center">
           <div className="flex-1 px-4 py-3 text-sm font-medium text-slate-500 text-right pr-6">Total:</div>
           {weekDays.map((_, idx) => (
-            <div key={idx} className="w-24 px-2 py-3 text-center border-l border-slate-200 text-sm font-mono text-slate-600">
+            <div key={idx} className="w-24 px-2 py-3 text-center border-l border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-600 dark:text-slate-200">
               {calculateColTotal(idx)}
             </div>
           ))}
-          <div className="w-24 px-2 py-3 text-center border-l border-slate-200 text-sm font-mono font-bold text-slate-800">
+          <div data-testid="timesheet-grand-total" className="w-24 px-2 py-3 text-center border-l border-slate-200 dark:border-slate-700 text-sm font-mono font-bold text-slate-800 dark:text-slate-100">
             {calculateGrandTotal()}
           </div>
         </div>

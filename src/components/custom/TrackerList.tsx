@@ -207,7 +207,7 @@ const TrackerList: React.FC<TrackerListProps> = ({
       </div>
 
       {groupedEntries.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 space-y-3">
+        <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 space-y-3">
           <p>{hasFilters ? "No matching entries." : "No time entries yet."}</p>
           <Button type="button" onClick={() => setIsDialogOpen(true)}>
             {hasFilters ? "Log time" : "Log your first entry"}
@@ -226,7 +226,7 @@ const TrackerList: React.FC<TrackerListProps> = ({
             </div>
 
             {/* List Card */}
-            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                {group.entries.map((entry) => {
                    const project = projects.find(p => p.id === entry.projectId);
                    return (

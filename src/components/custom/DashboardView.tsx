@@ -62,7 +62,7 @@ export default function DashboardView({
               />
             ))
           ) : (
-            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-500 space-y-3">
+            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center text-slate-500 space-y-3">
               <p>No active projects yet.</p>
               <Button type="button" onClick={() => router.push('/projects')}>Create a project</Button>
             </div>
@@ -92,21 +92,21 @@ export default function DashboardView({
                   key={client.id}
                   type="button"
                   onClick={() => handleNavigateToClient(client.id)}
-                  className="w-full text-left bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                  className="w-full text-left bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 space-y-3 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
                 >
                   <div className="flex items-center gap-2">
                     <span
                       className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: tailwindToHex(client.color || 'text-slate-600') }}
                     ></span>
-                    <span className="font-medium text-slate-900 text-sm">{client.name}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-sm">{client.name}</span>
                   </div>
 
                   {client.activeInvoiceBlock && (
                     <div className="space-y-2">
                       <div className="flex items-end justify-between">
                         <div>
-                          <span className="text-lg font-bold text-slate-900">
+                          <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
                             {client.activeInvoiceBlock.hoursTracked.toFixed(1)}h
                           </span>
                           <span className="text-slate-400 text-xs ml-1">
@@ -159,7 +159,7 @@ export default function DashboardView({
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           {entries.length > 0 ? (
             entries.slice(0, 5).map((entry) => {
               const project = projects.find(p => p.id === entry.projectId);

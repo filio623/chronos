@@ -23,6 +23,7 @@ import { TimerSessionProvider } from "./TimerSessionContext";
 import { BrowserTitle, LiveChromeDuration, LivePeriodTotals } from "./LiveElapsed";
 import { ManualTimeEntryForm } from "./ManualTimeEntryForm";
 import { TrackingPrefs } from "./TrackingPrefs";
+import { ThemeToggle } from "./ThemeToggle";
 import { RetainerWatch } from "./RetainerWatch";
 import {
   AlertDialog,
@@ -333,7 +334,7 @@ export default function AppShell({
         runningClientId={runningClientId}
         runningEntry={sessionEntry}
       />
-      <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex font-sans text-slate-900 dark:text-slate-100">
         <Sidebar
           currentView={currentView}
           retainers={retainers}
@@ -346,7 +347,7 @@ export default function AppShell({
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-3 text-slate-500 hover:text-slate-900"
+              className="md:hidden p-3 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
               aria-label="Open sidebar"
             >
               <Menu size={20} />
@@ -382,13 +383,16 @@ export default function AppShell({
               />
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 px-4 md:px-8 py-1.5 border-b border-slate-100 bg-white/70">
+          <div className="flex items-center justify-between gap-3 px-4 md:px-8 py-1.5 border-b border-slate-100 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
             <LivePeriodTotals
               weekEntries={weekEntries}
               todayKey={todayKey ?? ""}
-              className="text-xs text-slate-600"
+              className="text-xs text-slate-600 dark:text-slate-400"
             />
-            <TrackingPrefs weekStartsOn={weekStartsOn} rounding={rounding} />
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <TrackingPrefs weekStartsOn={weekStartsOn} rounding={rounding} />
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 scroll-smooth">

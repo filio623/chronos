@@ -283,7 +283,7 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, projects = 
   };
 
   return (
-    <div className={`group flex items-center justify-between py-3 px-4 bg-white border-b border-slate-100 hover:bg-slate-50 transition-all ${isPending ? 'opacity-50 grayscale' : ''}`}>
+    <div className={`group flex items-center justify-between py-3 px-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all ${isPending ? 'opacity-50 grayscale' : ''}`}>
       
       {/* Left Side: Description & Project Info */}
       <div className="flex items-center gap-4 flex-1 min-w-0 mr-4">
@@ -293,7 +293,8 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, projects = 
           <button
             type="button"
             onClick={openEdit}
-            className="text-sm font-medium text-slate-700 truncate text-left"
+            data-testid="entry-description"
+            className="text-sm font-medium text-slate-700 dark:text-slate-100 truncate text-left"
           >
             {entry.description || '(No description)'}
           </button>
@@ -409,7 +410,7 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({ entry, project, projects = 
         </div>
 
         {/* Duration */}
-        <div className="text-sm sm:text-base font-mono font-medium text-slate-800 w-20 text-right">
+        <div className="text-sm sm:text-base font-mono font-medium text-slate-800 dark:text-slate-100 w-20 text-right">
             {isLive ? <LiveElapsed entry={entry} className="live-row-duration" /> : entry.duration}
         </div>
 

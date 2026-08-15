@@ -41,7 +41,7 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
   });
 
   return (
-    <div className="bg-gradient-to-r from-slate-50 to-white border border-slate-200 rounded-lg p-4 space-y-3">
+    <div className="bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
@@ -89,7 +89,7 @@ const InvoiceBlockCard: React.FC<InvoiceBlockCardProps> = ({ block, clientName }
       <div className="space-y-2">
         <div className="flex items-end justify-between">
           <div>
-            <span className="text-2xl font-bold text-slate-900">
+            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               {block.hoursTracked.toFixed(1)}h
             </span>
             <span className="text-slate-400 text-sm ml-1">

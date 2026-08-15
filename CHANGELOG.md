@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+### Added
+- Light, dark, and system theme toggle in the shell. The toaster follows the theme, and the main views stay readable in dark.
+
 ### Changed
 - Pause and resume no longer refresh reports. Assigning invoice work now refreshes tracker, projects, and clients.
 - Reports only shows the working Summary view; dead Invoice/Export/Print/Share buttons and fake tabs are gone. Sidebar nav uses links, retainers are clients with an active block, and the unused Settings control is gone. Dashboard no longer says “Real-time DB Data”. Timesheet Teammates is gone.
