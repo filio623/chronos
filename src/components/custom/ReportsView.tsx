@@ -76,6 +76,7 @@ interface ReportsViewProps {
   };
   projects?: { id: string; name: string; clientId?: string | null }[];
   clients?: { id: string; name: string; currency?: string }[];
+  weekStartsOn?: 0 | 1;
 }
 
 type ProjectOption = { id: string; name: string; clientId?: string | null };
@@ -105,7 +106,7 @@ function parseDatePreset(value: string | null): DatePreset {
   return 'last30Days';
 }
 
-const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients = [] }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients = [], weekStartsOn = 0 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = parseReportTab(searchParams.get('reportTab'));
@@ -167,11 +168,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ data, projects = [], clients 
         updateParams({ from: format(yesterday, 'yyyy-MM-dd'), to: format(yesterday, 'yyyy-MM-dd'), preset: 'yesterday' });
         break;
       case 'thisWeek':
-        updateParams({ from: format(startOfWeek(now), 'yyyy-MM-dd'), to: format(endOfWeek(now), 'yyyy-MM-dd'), preset: 'thisWeek' });
+        updateParams({ from: format(startOfWeek(now, { weekStartsOn }), 'yyyy-MM-dd'), to: format(endOfWeek(now, { weekStartsOn }), 'yyyy-MM-dd'), preset: 'thisWeek' });
         break;
       case 'lastWeek':
-        const lastWeekStart = startOfWeek(subDays(now, 7));
-        updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart), 'yyyy-MM-dd'), preset: 'lastWeek' });
+        const lastWeekStart = startOfWeek(subDays(now, 7), { weekStartsOn });
+        updateParams({ from: format(lastWeekStart, 'yyyy-MM-dd'), to: format(endOfWeek(lastWeekStart, { weekStartsOn }), 'yyyy-MM-dd'), preset: 'lastWeek' });
         break;
       case 'thisMonth':
         updateParams({ from: format(startOfMonth(now), 'yyyy-MM-dd'), to: format(endOfMonth(now), 'yyyy-MM-dd'), preset: 'thisMonth' });

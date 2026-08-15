@@ -3,7 +3,14 @@
 import React from 'react';
 import TrackerList from '@/components/custom/TrackerList';
 import { Project, Client, TimeEntry, Tag } from '@/types';
-import { startTimer } from '@/server/actions/time-entries';
+import { useTimerSession } from './TimerSessionContext';
+
+export type TrackerFilterState = {
+  q: string;
+  project: string;
+  client: string;
+  billable: string;
+};
 
 interface TrackerPageClientProps {
   entries: TimeEntry[];
@@ -13,6 +20,7 @@ interface TrackerPageClientProps {
   totalCount: number;
   page: number;
   pageSize: number;
+  filters: TrackerFilterState;
 }
 
 export default function TrackerPageClient({
@@ -23,9 +31,12 @@ export default function TrackerPageClient({
   totalCount,
   page,
   pageSize,
+  filters,
 }: TrackerPageClientProps) {
+  const { requestStart } = useTimerSession();
+
   const handleRestart = async (entry: TimeEntry) => {
-    await startTimer(entry.projectId, entry.description);
+    await requestStart(entry.projectId || null, entry.description, { isBillable: entry.isBillable });
   };
 
   return (
@@ -38,6 +49,7 @@ export default function TrackerPageClient({
       totalCount={totalCount}
       page={page}
       pageSize={pageSize}
+      filters={filters}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -11,32 +11,22 @@ import {
   Grid3X3
 } from 'lucide-react';
 import { Project, TimeEntry, Client } from '@/types';
-import { logManualTimeEntry } from '@/server/actions/time-entries';
-import { createProject } from '@/server/actions/projects';
-import { createClient } from '@/server/actions/clients';
 import { useRouter } from 'next/navigation';
 import { format, startOfWeek, endOfWeek, addDays, subWeeks, addWeeks, isSameDay } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectSeparator,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { formatLocalTime, getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
-import { toast } from "sonner";
+import { formatLocalTime, getLocalDateKey, parseDateKeyToLocalDate, type WeekStartsOn } from '@/lib/time';
+import { UNASSIGNED_PROJECT_KEY } from '@/lib/tracking';
+import { ManualTimeEntryForm } from './ManualTimeEntryForm';
+import { useTimerSession } from './TimerSessionContext';
+import { roundSeconds } from '@/lib/tracking';
 
 interface TimesheetViewProps {
   projects: Project[];
   clients: Client[];
   entries: TimeEntry[];
   weekStart: string;
+  weekStartsOn?: WeekStartsOn;
 }
 
 interface TimesheetRow {
@@ -45,112 +35,12 @@ interface TimesheetRow {
   values: string[];
 }
 
-const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entries, weekStart }) => {
-  const currentWeekStart = parseDateKeyToLocalDate(weekStart) ?? startOfWeek(new Date(), { weekStartsOn: 0 });
+const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entries, weekStart, weekStartsOn = 0 }) => {
+  const currentWeekStart = parseDateKeyToLocalDate(weekStart) ?? startOfWeek(new Date(), { weekStartsOn });
   const router = useRouter();
+  const { rounding } = useTimerSession();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isManualOpen, setIsManualOpen] = useState(false);
-  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
-  const [isCreateClientOpen, setIsCreateClientOpen] = useState(false);
-  const [manualMode, setManualMode] = useState<'range' | 'duration'>('range');
-  const [isPending, startTransition] = useTransition();
-
-  const todayString = format(new Date(), 'yyyy-MM-dd');
-  const [entryDate, setEntryDate] = useState(todayString);
-  const [entryProjectId, setEntryProjectId] = useState<string>('none');
-  const [entryClientId, setEntryClientId] = useState<string>('none');
-  const [entryDescription, setEntryDescription] = useState('');
-  const [entryStartTime, setEntryStartTime] = useState('09:00');
-  const [entryEndTime, setEntryEndTime] = useState('10:00');
-  const [entryHours, setEntryHours] = useState('1');
-  const [entryMinutes, setEntryMinutes] = useState('0');
-  const [entryIsBillable, setEntryIsBillable] = useState(true);
-  const [billableTouched, setBillableTouched] = useState(false);
-  const [entryRateOverride, setEntryRateOverride] = useState('');
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectClientId, setNewProjectClientId] = useState<string>('none');
-  const [newClientName, setNewClientName] = useState('');
-  const [newClientCurrency, setNewClientCurrency] = useState('USD');
-
-  const selectedProject = entryProjectId !== 'none'
-    ? projects.find(p => p.id === entryProjectId) || null
-    : null;
-
-  const isClientLocked = !!selectedProject?.clientId;
-  const displayClientId = selectedProject?.clientId ?? entryClientId;
-
-  const getDefaultBillable = (projectId: string, clientId: string) => {
-    if (projectId !== 'none') {
-      const project = projects.find(p => p.id === projectId);
-      if (project?.defaultBillable !== null && project?.defaultBillable !== undefined) {
-        return project.defaultBillable;
-      }
-      const projectClient = clients.find(c => c.id === project?.clientId);
-      if (projectClient?.defaultBillable !== undefined) return projectClient.defaultBillable;
-    }
-    if (clientId !== 'none') {
-      const client = clients.find(c => c.id === clientId);
-      if (client?.defaultBillable !== undefined) return client.defaultBillable;
-    }
-    return true;
-  };
-
-  const displayBillable = billableTouched
-    ? entryIsBillable
-    : getDefaultBillable(entryProjectId, displayClientId);
-
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectName.trim()) return;
-
-    const formData = new FormData();
-    formData.append('name', newProjectName);
-    if (newProjectClientId !== 'none') {
-      formData.append('clientId', newProjectClientId);
-    }
-
-    startTransition(async () => {
-      const result = await createProject(formData);
-      if (!result.success) {
-        toast.error(result.error || 'Failed to create project');
-        return;
-      }
-      if (result.data?.id) {
-        setEntryProjectId(result.data.id);
-        if (result.data.clientId) {
-          setEntryClientId(result.data.clientId);
-        }
-      }
-      setIsCreateProjectOpen(false);
-      setNewProjectName('');
-      setNewProjectClientId('none');
-      router.refresh();
-    });
-  };
-
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newClientName.trim()) return;
-
-    const formData = new FormData();
-    formData.append('name', newClientName);
-    formData.append('currency', newClientCurrency || 'USD');
-
-    startTransition(async () => {
-      const result = await createClient(formData);
-      if (!result.success) {
-        toast.error(result.error || 'Failed to create client');
-        return;
-      }
-      if (result.data?.id) {
-        setEntryClientId(result.data.id);
-      }
-      setIsCreateClientOpen(false);
-      setNewClientName('');
-      setNewClientCurrency('USD');
-      router.refresh();
-    });
-  };
 
   // Generate days for current week
   const weekDays = useMemo(() => {
@@ -169,29 +59,27 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     const result = new Map<string, number[]>();
 
     entries.forEach(entry => {
-      if (!entry.projectId) return;
+      const projectKey = entry.projectId || UNASSIGNED_PROJECT_KEY;
       const entryDateKey = getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date);
       const entryDate = parseDateKeyToLocalDate(entryDateKey);
       if (!entryDate) return;
 
-      // Check if entry is in current week
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn });
       if (entryDate < currentWeekStart || entryDate > weekEnd) return;
 
-      // Find day index
       const dayIndex = weekDays.findIndex(d => isSameDay(d.fullDate, entryDate));
       if (dayIndex === -1) return;
 
-      if (!result.has(entry.projectId)) {
-        result.set(entry.projectId, [0, 0, 0, 0, 0, 0, 0]);
+      if (!result.has(projectKey)) {
+        result.set(projectKey, [0, 0, 0, 0, 0, 0, 0]);
       }
 
-      const hours = result.get(entry.projectId)!;
-      hours[dayIndex] += entry.durationSeconds / 3600;
+      const hours = result.get(projectKey)!;
+      hours[dayIndex] += roundSeconds(entry.durationSeconds, rounding) / 3600;
     });
 
     return result;
-  }, [entries, currentWeekStart, weekDays]);
+  }, [entries, currentWeekStart, weekDays, weekStartsOn, rounding]);
 
   // Build rows from aggregated data
   const rows = useMemo(() => {
@@ -264,9 +152,16 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
   };
 
   const getProjectName = (projectId: string): { name: string; client: string; color: string } | null => {
+    if (!projectId || projectId === UNASSIGNED_PROJECT_KEY) {
+      return { name: 'No project', client: 'Unassigned', color: 'text-slate-400' };
+    }
     const project = projects.find(p => p.id === projectId);
-    if (!project) return null;
+    if (!project) return { name: 'No project', client: 'Unassigned', color: 'text-slate-400' };
     return { name: project.name, client: project.client, color: project.color };
+  };
+
+  const jumpToWeek = (dateKey: string) => {
+    router.push(`/timesheet?week=${dateKey}`);
   };
 
   const prevWeek = () => {
@@ -278,87 +173,17 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
     router.push(`/timesheet?week=${format(next, 'yyyy-MM-dd')}`);
   };
 
-  const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn }));
 
   const weekEntries = useMemo(() => {
-    const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn });
     return entries.filter(entry => {
       const entryDateKey = getLocalDateKey(entry.startTimeISO || entry.startTime || entry.date);
       const entryDate = parseDateKeyToLocalDate(entryDateKey);
       if (!entryDate) return false;
       return entryDate >= currentWeekStart && entryDate <= weekEnd;
     });
-  }, [entries, currentWeekStart]);
-
-  const buildDateTime = (dateStr: string, timeStr: string) => {
-    return new Date(`${dateStr}T${timeStr}`);
-  };
-
-  const handleManualSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const projectId = entryProjectId === 'none' ? null : entryProjectId;
-    const clientId = displayClientId === 'none' ? null : displayClientId;
-
-    let startTime: Date;
-    let endTime: Date;
-
-    if (manualMode === 'range') {
-      if (!entryStartTime || !entryEndTime) {
-        toast.error("Please enter a start and end time.");
-        return;
-      }
-      startTime = buildDateTime(entryDate, entryStartTime);
-      endTime = buildDateTime(entryDate, entryEndTime);
-    } else {
-      const hours = Math.max(0, parseInt(entryHours || '0', 10));
-      const minutes = Math.max(0, parseInt(entryMinutes || '0', 10));
-      const totalMinutes = hours * 60 + minutes;
-      if (totalMinutes <= 0) {
-        toast.error("Please enter a duration greater than 0.");
-        return;
-      }
-      const start = entryStartTime ? buildDateTime(entryDate, entryStartTime) : buildDateTime(entryDate, '00:00');
-      startTime = start;
-      endTime = new Date(start.getTime() + totalMinutes * 60000);
-    }
-
-    if (endTime <= startTime) {
-      toast.error("End time must be after start time.");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await logManualTimeEntry({
-        projectId,
-        clientId,
-        description: entryDescription,
-        startTime,
-        endTime,
-        isBillable: displayBillable,
-        rateOverride: entryRateOverride.trim() ? parseFloat(entryRateOverride) : null,
-      });
-
-      if (!result.success) {
-        toast.error(result.error || "Failed to log entry");
-        return;
-      }
-
-      setIsManualOpen(false);
-      setEntryDescription('');
-      setEntryProjectId('none');
-      setEntryClientId('none');
-      setEntryStartTime('09:00');
-      setEntryEndTime('10:00');
-      setEntryHours('1');
-      setEntryMinutes('0');
-      setEntryIsBillable(true);
-      setEntryRateOverride('');
-      setBillableTouched(false);
-      router.refresh();
-    });
-  };
-
+  }, [entries, currentWeekStart, weekStartsOn]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
@@ -400,12 +225,27 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
 
           {/* Date Navigator */}
           <div className="flex items-center bg-white border border-slate-200 rounded shadow-sm">
-            <div className="flex items-center gap-2 px-3 py-2 border-r border-slate-200 cursor-pointer hover:bg-slate-50 min-w-[160px]">
+            <label className="flex items-center gap-2 px-3 py-2 border-r border-slate-200 cursor-pointer hover:bg-slate-50 min-w-[160px]">
               <Calendar size={16} className="text-slate-400" />
               <span className="text-sm text-slate-700 font-medium">
-                {isCurrentWeek ? 'This week' : format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d')}
+                {isCurrentWeek ? 'This week' : `${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d')}`}
               </span>
-            </div>
+              <input
+                type="date"
+                aria-label="Jump to week"
+                className="sr-only"
+                onChange={(e) => {
+                  if (e.target.value) jumpToWeek(e.target.value);
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => router.push('/timesheet')}
+              className="px-3 py-2 text-xs font-medium text-indigo-600 border-r border-slate-200 hover:bg-slate-50"
+            >
+              This week
+            </button>
             <button
               onClick={prevWeek}
               className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 border-r border-slate-200"
@@ -505,7 +345,7 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
                 {/* Value Cells (read-only) */}
                 {row.values.map((val, idx) => (
                   <div key={idx} className="w-24 px-2 py-3 border-l border-slate-100 flex justify-center">
-                    <div className="w-full text-center text-sm text-slate-600 bg-slate-50 rounded px-1 py-1">
+                    <div className="w-full text-center text-sm text-slate-600 tabular-nums">
                       {val || '0:00'}
                     </div>
                   </div>
@@ -544,291 +384,14 @@ const TimesheetView: React.FC<TimesheetViewProps> = ({ projects, clients, entrie
           <DialogHeader>
             <DialogTitle>Add manual time entry</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="entry-date">Date</Label>
-                <Input
-                  id="entry-date"
-                  type="date"
-                  value={entryDate}
-                  onChange={(e) => setEntryDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="entry-billable">Billable</Label>
-                <div className="flex items-center gap-2 h-10">
-                  <Switch
-                    checked={displayBillable}
-                    onCheckedChange={(checked) => {
-                      setEntryIsBillable(checked);
-                      setBillableTouched(true);
-                    }}
-                    id="entry-billable"
-                  />
-                  <span className="text-xs text-slate-500">
-                    {displayBillable ? 'Billable' : 'Non-billable'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input
-                value={entryDescription}
-                onChange={(e) => setEntryDescription(e.target.value)}
-                placeholder="What did you work on?"
-                maxLength={500}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Rate override (hourly)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="e.g. 50"
-                value={entryRateOverride}
-                onChange={(e) => setEntryRateOverride(e.target.value)}
-              />
-              <p className="text-[10px] text-slate-500 italic">Optional entry-only rate</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Project (optional)</Label>
-                <Select
-                  value={entryProjectId}
-                  onValueChange={(value) => {
-                    if (value === 'create-new-project') {
-                      setIsCreateProjectOpen(true);
-                      return;
-                    }
-                    setEntryProjectId(value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    <SelectSeparator />
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                    <SelectSeparator />
-                    <SelectItem value="create-new-project">
-                      <div className="flex items-center gap-2 text-indigo-600">
-                        <Plus size={12} />
-                        Create new project...
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Client (optional)</Label>
-                <Select
-                  value={displayClientId}
-                  onValueChange={(value) => {
-                    if (value === 'create-new-client') {
-                      setIsCreateClientOpen(true);
-                      return;
-                    }
-                    setEntryClientId(value);
-                  }}
-                  disabled={isClientLocked}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isClientLocked ? 'Linked to project' : 'Select client'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No client</SelectItem>
-                    <SelectSeparator />
-                    {clients.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                    <SelectSeparator />
-                    <SelectItem value="create-new-client">
-                      <div className="flex items-center gap-2 text-indigo-600">
-                        <Plus size={12} />
-                        Create new client...
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={manualMode === 'range' ? 'default' : 'outline'}
-                onClick={() => setManualMode('range')}
-              >
-                Time range
-              </Button>
-              <Button
-                type="button"
-                variant={manualMode === 'duration' ? 'default' : 'outline'}
-                onClick={() => setManualMode('duration')}
-              >
-                Duration
-              </Button>
-            </div>
-
-            {manualMode === 'range' ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Start time</Label>
-                  <Input
-                    type="time"
-                    value={entryStartTime}
-                    onChange={(e) => setEntryStartTime(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End time</Label>
-                  <Input
-                    type="time"
-                    value={entryEndTime}
-                    onChange={(e) => setEntryEndTime(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Hours</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={entryHours}
-                    onChange={(e) => setEntryHours(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Minutes</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={entryMinutes}
-                    onChange={(e) => setEntryMinutes(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Start time (optional)</Label>
-                  <Input
-                    type="time"
-                    value={entryStartTime}
-                    onChange={(e) => setEntryStartTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsManualOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving...' : 'Save entry'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Create project</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreateProject} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-project-name">Project name</Label>
-              <Input
-                id="new-project-name"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="e.g. Website Redesign"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Client (optional)</Label>
-              <Select value={newProjectClientId} onValueChange={setNewProjectClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No client</SelectItem>
-                  <SelectSeparator />
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Creating...' : 'Create project'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isCreateClientOpen} onOpenChange={setIsCreateClientOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Create client</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreateClient} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-client-name">Client name</Label>
-              <Input
-                id="new-client-name"
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                placeholder="e.g. Acme Inc."
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-client-currency">Currency</Label>
-              <Input
-                id="new-client-currency"
-                value={newClientCurrency}
-                onChange={(e) => setNewClientCurrency(e.target.value.toUpperCase())}
-                placeholder="USD"
-                maxLength={3}
-                required
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateClientOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Creating...' : 'Create client'}
-              </Button>
-            </div>
-          </form>
+          <ManualTimeEntryForm
+            projects={projects}
+            clients={clients}
+            onSuccess={() => {
+              setIsManualOpen(false);
+              router.refresh();
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

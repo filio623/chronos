@@ -16,4 +16,17 @@ describe("buildTimeEntryListArgs", () => {
     expect(args.skip).toBe(50);
     expect(args.take).toBe(50);
   });
+
+  it("applies text, project, client, and billable filters", () => {
+    const args = buildTimeEntryListArgs({
+      q: "acme",
+      projectId: "__none__",
+      clientId: "11111111-1111-1111-1111-111111111111",
+      isBillable: true,
+    });
+    expect(args.where.description).toEqual({ contains: "acme", mode: "insensitive" });
+    expect(args.where.projectId).toBeNull();
+    expect(args.where.clientId).toBe("11111111-1111-1111-1111-111111111111");
+    expect(args.where.isBillable).toBe(true);
+  });
 });

@@ -6,7 +6,9 @@ import BudgetCard from '@/components/custom/BudgetCard';
 import TimeEntryRow from '@/components/custom/TimeEntryRow';
 import { Project, TimeEntry, Client, Tag } from '@/types';
 import { tailwindToHex } from '@/lib/colors';
-import { startTimer } from '@/server/actions/time-entries';
+import { daysToEmpty } from '@/lib/tracking';
+import { useTimerSession } from './TimerSessionContext';
+import { Button } from '@/components/ui/button';
 
 interface DashboardViewProps {
   projects: Project[];
@@ -14,6 +16,8 @@ interface DashboardViewProps {
   entries: TimeEntry[];
   activeTimer: TimeEntry | null;
   tags: Tag[];
+  hoursThisWeekByClient?: Record<string, number>;
+  weekDaysElapsed?: number;
 }
 
 export default function DashboardView({
@@ -21,8 +25,11 @@ export default function DashboardView({
   clients,
   entries,
   tags,
+  hoursThisWeekByClient = {},
+  weekDaysElapsed = 1,
 }: DashboardViewProps) {
   const router = useRouter();
+  const { requestStart, openManualEntry } = useTimerSession();
 
   const handleNavigateToProject = (projectId: string) => {
     router.push(`/projects?highlight=${projectId}`);
@@ -33,7 +40,8 @@ export default function DashboardView({
   };
 
   const handleRestartTask = async (entry: TimeEntry) => {
-    await startTimer(entry.projectId, entry.description);
+    const started = await requestStart(entry.projectId || null, entry.description);
+    if (!started) return;
   };
 
   return (
@@ -55,8 +63,9 @@ export default function DashboardView({
               />
             ))
           ) : (
-            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400">
-              No active projects found in database.
+            <div className="col-span-full p-12 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-500 space-y-3">
+              <p>No active projects yet.</p>
+              <Button type="button" onClick={() => router.push('/projects')}>Create a project</Button>
             </div>
           )}
         </div>
@@ -110,6 +119,14 @@ export default function DashboardView({
                         </span>
                       </div>
 
+                      <p className="text-xs text-slate-500">
+                        {daysToEmpty({
+                          hoursTarget: client.activeInvoiceBlock.hoursTarget,
+                          hoursTracked: client.activeInvoiceBlock.hoursTracked,
+                          hoursThisWeek: hoursThisWeekByClient[client.id] ?? 0,
+                          weekDaysElapsed,
+                        }).label}
+                      </p>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
@@ -152,14 +169,19 @@ export default function DashboardView({
                   key={entry.id}
                   entry={entry}
                   project={project}
+                  projects={projects}
                   availableTags={tags}
                   onRestart={handleRestartTask}
                 />
               );
             })
           ) : (
-            <div className="p-12 text-center text-slate-400">
-              No recent activity. Start a timer to get moving!
+            <div className="p-12 text-center text-slate-500 space-y-3">
+              <p>No recent activity.</p>
+              <div className="flex justify-center gap-2">
+                <Button type="button" onClick={() => requestStart(null, "")}>Start a timer</Button>
+                <Button type="button" variant="outline" onClick={openManualEntry}>Log time</Button>
+              </div>
             </div>
           )}
         </div>

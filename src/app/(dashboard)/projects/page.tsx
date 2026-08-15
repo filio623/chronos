@@ -28,7 +28,7 @@ export default async function ProjectsPage(props: {
   ]);
 
   const projects = projectsData.projects.map(mapProject);
-  const clients = clientsData.map(mapClient);
+  const clients = clientsData.map((client) => mapClient(client));
 
   const projectMap = new Map(projects.map(p => [p.id, p]));
   const clientMap = new Map(clients.map(c => [c.id, c]));

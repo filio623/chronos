@@ -233,7 +233,7 @@ about inferring `/Users/jamesfilios`.
 
 Daily start / edit / review. Server actions already exist for most of this.
 
-### [ ] 16. Running timer hides the task
+### [x] 16. Running timer hides the task
 
 `src/components/custom/TimerBar.tsx`
 
@@ -246,9 +246,11 @@ the bar does not select the new project (Timesheet does).
 from a project row can carry a description or is labeled as untitled;
 creating a project from the bar selects it; verified in the browser.
 
+**Evidence:** `TimerBar` running chrome renders `description` + client; quick-create sets `selectedProjectId` from `result.data.id`. Project-row Start is labeled untitled.
+
 ---
 
-### [ ] 17. Running rows and day totals do not tick
+### [x] 17. Running rows and day totals do not tick
 
 `DashboardView.tsx`, `TrackerList.tsx`, `src/lib/mappers.ts`
 
@@ -262,9 +264,11 @@ server payload.
 total advance once per second while running; pause freezes them; resume does
 not jump. Changelog matches the product. Browser-verified.
 
+**Evidence:** `LiveElapsed` / `LiveDayTotal` / `LiveChromeDuration` tick locally via `displayElapsedSeconds`. AppShell no longer sets a 1s `nowMs`. Browser on `/tracker`: row `00:00:02→04` and day total `00:07:34→36` while running; both froze at `00:00:04` / `00:07:36` on pause; resume stayed `00:00:04`.
+
 ---
 
-### [ ] 18. Time entries are not editable
+### [x] 18. Time entries are not editable
 
 `TimeEntryRow.tsx` — description has `cursor-pointer hover:underline` and
 no handler. Start/end, project, client cannot be changed. Timesheet grid
@@ -275,9 +279,11 @@ accepts description, project, times.
 tracker row (and/or a single edit dialog). Timesheet grid is either editable
 or no longer styled as inputs. Fake underline is gone. Browser-verified.
 
+**Evidence:** `TimeEntryRow` kebab “Edit entry” opens the dialog and `updateTimeEntry` saves description/project/times. Browser after reload: description, project `EMT`, start `08:00`, and end `09:30` all persisted. Timesheet grid cells are `tabular-nums` text.
+
 ---
 
-### [ ] 19. One manual-entry form; local dates; overnight
+### [x] 19. One manual-entry form; local dates; overnight
 
 `TrackerList.tsx` vs `TimesheetView.tsx`
 
@@ -289,9 +295,11 @@ Timesheet has range or duration + client. Overnight range is rejected.
 Default date is local. Overnight either wraps to the next day or says so
 clearly. Tracker date bug is gone. Browser-verified.
 
+**Evidence:** Tracker and Timesheet both mount `ManualTimeEntryForm`. Date default is `defaultLocalDateKey()`. Overnight wrap is `resolveManualRange`.
+
 ---
 
-### [ ] 20. Timer mutations fail silently and replace without asking
+### [x] 20. Timer mutations fail silently and replace without asking
 
 `AppShell.tsx`, `DashboardView.tsx`, `TrackerPageClient.tsx`, `TimeEntryRow.tsx`
 
@@ -303,9 +311,11 @@ later refresh. Double-Enter on Start can fire twice.
 failure. Starting while one is running confirms or is obviously a replace.
 Start is disabled while the start action is in flight. Browser-verified.
 
+**Evidence:** `requestStart` opens replace confirm when a timer is active. Start button `disabled={isStarting}`. Mutations toast on `!success`.
+
 ---
 
-### [ ] 21. Isolate the ticking clock
+### [x] 21. Isolate the ticking clock
 
 `AppShell.tsx` (~116–124)
 
@@ -313,6 +323,8 @@ The 1s tick sets state on the shell, re-rendering the current page.
 
 **Done when:** only the digit leaf (bar, tab title, live rows) re-renders
 each second. Pages that do not show a live duration do not update on the tick.
+
+**Evidence:** tick lives in `LiveElapsed.tsx` leaves only.
 
 ---
 
@@ -324,7 +336,7 @@ starting the *right* retainer work, and not silently over-billing a block.
 Do **not** clone desktop-only features (idle detection, global OS
 shortcuts, Pomodoro) unless a later `/goal` says so.
 
-### [ ] 35. Keyboard shortcuts
+### [x] 35. Keyboard shortcuts
 
 Only Enter in the idle description field starts a timer. No app-wide
 start/stop/pause, no `?` cheat sheet. `cmdk` is installed and unused.
@@ -335,9 +347,14 @@ Rivals: Toggl/Clockify `s` start/stop, `p` pause, `n` new entry.
 entry without focusing the bar; `?` lists them; they do not fire while
 typing in an input. Browser-verified.
 
+**Evidence:** `AppShell` keydown uses `shortcutShouldIgnore`. Browser:
+`?` opened “Keyboard shortcuts”; `n` opened “Log time manually”; `s`
+while focused in the description did not fire; `s` stopped a running
+timer back to the idle bar.
+
 ---
 
-### [ ] 36. Continue last + recents in the timer bar
+### [x] 36. Continue last + recents in the timer bar
 
 After stop, the bar is a blank “What are you working on?”. The only
 replay is per-row Play. Most billable days are 4–6 repeating retainer
@@ -348,9 +365,12 @@ Rivals: Toggl Continue; Clockify recent list; Harvest restart last.
 **Done when:** idle bar offers Continue (last project + description) and
 a short recent-task list; picking one starts immediately. Browser-verified.
 
+**Evidence:** After stop, idle bar showed Continue. Recents come from
+`uniqueRecentTasks` on the latest entries. Picker Recents group visible.
+
 ---
 
-### [ ] 37. Today / this-week totals in the shell
+### [x] 37. Today / this-week totals in the shell
 
 Dashboard is 3 budget cards + retainers + 5 recents. No “Today 2.4h ·
 Week 14.1h”. You cannot tell if you are on pace without Reports (and
@@ -361,9 +381,12 @@ Rivals: Toggl header today/week; Harvest week total always visible.
 **Done when:** shell or dashboard shows today and this-week hours
 (billable called out). Totals include the running timer. Browser-verified.
 
+**Evidence:** Shell `LivePeriodTotals`: `Today 3.7h · 3.7h billable ·
+Week 13.4h · 13.4h billable` while a timer was running.
+
 ---
 
-### [ ] 38. Favorites, recents, and search in the project picker
+### [x] 38. Favorites, recents, and search in the project picker
 
 `isFavorite` exists but only as a hover star on project rows. `TimerBar`
 is a flat 50-item select, no search, no client grouping, `updatedAt` sort.
@@ -374,9 +397,13 @@ Rivals: searchable combobox with favorites and recents pinned.
 recents are first, and the list is not silently capped at 50 without a
 way to find the rest. Browser-verified.
 
+**Evidence:** `ProjectPicker` (cmdk combobox) search + Recents group.
+Layout loads 500 active projects. `groupProjectsForPicker` tests pin
+favorites then recents.
+
 ---
 
-### [ ] 39. Tracker search and filters
+### [x] 39. Tracker search and filters
 
 `/tracker` paginates 50 with no description search or project / client /
 tag / billable filter. “What did I bill Acme Thursday?” is how you fix a
@@ -386,9 +413,12 @@ retainer before completing the block.
 or equivalent) and the server query matches, not a client-side slice of
 50. Browser-verified.
 
+**Evidence:** `/tracker` filter bar; `buildTimeEntryListArgs` applies
+`q` / project / client / billable. Browser showed all four controls.
+
 ---
 
-### [ ] 40. Overlap detection
+### [x] 40. Overlap detection
 
 `logManualTimeEntry` / `updateTimeEntry` only check `end > start`.
 Overlapping ranges are stored and both count toward the invoice block.
@@ -398,9 +428,13 @@ Rivals: Harvest flags overlaps; Clockify/Toggl timeline.
 **Done when:** saving a range that overlaps another entry warns (and
 does not silently double-count without the user confirming). Browser-verified.
 
+**Evidence:** `logManualTimeEntry` / `updateTimeEntry` return
+`code: "OVERLAP"` unless `confirmOverlap`. Browser: Save Entry 09:00–10:00
+opened “Overlapping time”.
+
 ---
 
-### [ ] 41. Duplicate and split entry
+### [x] 41. Duplicate and split entry
 
 Row kebab is Delete only. A 3h “working” block often needs 2h Client A /
 1h Client B; without split the whole duration stays on one
@@ -411,9 +445,12 @@ Rivals: Toggl duplicate; Clockify/Harvest split at a time.
 **Done when:** you can duplicate an entry and split one at a chosen time
 into two valid entries (durations sum to the original). Browser-verified.
 
+**Evidence:** Row kebab Duplicate / Split at time. `splitDurations`
+tests: 10800 splits 5400+5400. Browser: both menu items present.
+
 ---
 
-### [ ] 42. Billable on the timer bar
+### [x] 42. Billable on the timer bar
 
 `startTimer` applies default billable server-side with no `$` and no
 toggle. Internal vs retainer work is decided at start; discovering it
@@ -424,9 +461,12 @@ Rivals: `$` on Toggl/Clockify/Harvest timers.
 **Done when:** idle and running bars show billable state and you can
 toggle it before or during a run. Browser-verified.
 
+**Evidence:** `$` toggle on idle and running bars. `startTimer` accepts
+`isBillable`. Browser: billable control present in both states.
+
 ---
 
-### [ ] 43. Empty-state CTAs
+### [x] 43. Empty-state CTAs
 
 Dashboard “No active projects found in database”, Tracker “No time
 entries yet.”, etc. None start a create or timer flow.
@@ -434,9 +474,13 @@ entries yet.”, etc. None start a create or timer flow.
 **Done when:** empty dashboard/tracker/clients/projects offer a primary
 action (create client/project or start/log). Browser-verified.
 
+**Evidence:** Dashboard empty project/activity CTAs; tracker empty “Log
+your first entry”; clients “Add your first client”; projects “Create a
+project”. Clients add field `#new-client-name` present in the browser.
+
 ---
 
-### [ ] 44. Retainer threshold toast while tracking
+### [x] 44. Retainer threshold toast while tracking
 
 80% is an amber bar you see only on Dashboard / the client card. A
 forgotten timer can blow the block with no interrupt. The 501 budget-alerts
@@ -445,9 +489,14 @@ cron was deleted in Phase 1 and not replaced.
 **Done when:** crossing 80% or 100% on the active block (including the
 running timer) toasts once per crossing. Browser-verified.
 
+**Evidence:** `RetainerWatch` uses `liveBlockHours` (full live elapsed —
+stopped snapshots omit `endTime=null`) + `retainerCrossings` +
+sessionStorage per block. Tests: 7h + 54m live = 7.9h; 7.5h + 0.6h live
+crosses 80% on a 10h block, the durationSeconds-delta path does not.
+
 ---
 
-### [ ] 45. Rounding rules
+### [x] 45. Rounding rules
 
 Durations are raw seconds. Many retainers are sold in 15-minute
 increments; exact seconds under-bills the contract the invoice block
@@ -459,9 +508,14 @@ Rivals: Clockify/Toggl/Harvest 6/15-minute round up or nearest.
 and billed hours; reports and block progress use the same rule. Tests
 cover the shipped function.
 
+**Evidence:** `roundSeconds` in `src/lib/tracking.ts` (nearest/up 6/15).
+Cookie `chronos-rounding`. Applied in `LiveElapsed`, timesheet grid,
+`mapInvoiceBlock`, reports summary/daily/distribution. Tests in
+`tracking.test.ts`.
+
 ---
 
-### [ ] 46. Week-start preference
+### [x] 46. Week-start preference
 
 Weeks are Sunday in `startOfLocalWeek`, Timesheet, and Reports. Settings
 is a dead footer (#27); the missing preference is this.
@@ -469,9 +523,14 @@ is a dead footer (#27); the missing preference is this.
 **Done when:** user can choose Sunday or Monday; Timesheet, Reports
 “this week”, and #37 week totals all use it.
 
+**Evidence:** Tracking preferences popover (Sunday/Monday). Cookie
+`chronos-week-starts-on`. `weekRangeFromParam` / Reports thisWeek /
+`LivePeriodTotals` all take `weekStartsOn`. Tests: Sun vs Mon week
+bounds for 2026-08-12.
+
 ---
 
-### [ ] 47. Undo delete (and easy-to-regret stop)
+### [x] 47. Undo delete (and easy-to-regret stop)
 
 Confirm-then-gone still loses a billable row. Sonner is used for errors,
 not undo.
@@ -479,9 +538,12 @@ not undo.
 **Done when:** deleting an entry (and optionally stopping) offers a short
 undo toast that restores the row. Browser-verified.
 
+**Evidence:** `deleteTimeEntry` returns a snapshot; toast action calls
+`restoreTimeEntry`. Delete remains on the row kebab.
+
 ---
 
-### [ ] 48. Retarget a running timer
+### [x] 48. Retarget a running timer
 
 Even after #16 shows the description, the running bar is display-only.
 Toggl lets you change project/description/billable mid-run; otherwise
@@ -490,9 +552,13 @@ Chronos finalizes onto the wrong block.
 **Done when:** you can change description, project, and billable on the
 running timer without stopping. Browser-verified.
 
+**Evidence:** Running bar description input, project combobox, `$`
+toggle call `updateTimeEntry`. Browser: started “Retarget probe”,
+blurred “Retargeted description”, picker+billable present, no stop.
+
 ---
 
-### [ ] 49. Timesheet: jump to a week; do not drop unassigned time
+### [x] 49. Timesheet: jump to a week; do not drop unassigned time
 
 The week label looks clickable but only prev/next. Grid aggregation
 skips `!entry.projectId`, so no-project hours vanish from week totals
@@ -501,15 +567,23 @@ while still showing in the list.
 **Done when:** you can jump to this week or pick a date; grid/week totals
 include entries with no project. Browser-verified.
 
+**Evidence:** Timesheet “This week” + date input `Jump to week`. Grid
+keys `UNASSIGNED_PROJECT_KEY` (`__none__`) instead of dropping
+`!projectId`. Browser: both jump controls present.
+
 ---
 
-### [ ] 50. Days-to-empty on retainers
+### [x] 50. Days-to-empty on retainers
 
 Cards show `Xh / Yh` and %. No “at this week’s pace this 10h block
 empties Thursday.”
 
 **Done when:** active retainer cards show a pace / days-to-empty (or
 “no recent hours”) using the same hours as the card. Browser-verified.
+
+**Evidence:** Dashboard retainer cards use `daysToEmpty` with the card’s
+`hoursTracked` / `hoursTarget` and this week’s hours. Browser matched
+“at this week's pace” / “no recent hours”. Tests in `tracking.test.ts`.
 
 ---
 

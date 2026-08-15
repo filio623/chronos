@@ -1,31 +1,29 @@
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { TimeEntry, Project, Client, Tag } from '@/types';
 import TimeEntryRow from './TimeEntryRow';
-import { Plus, Loader2 } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import { Plus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { logManualTimeEntry } from '@/server/actions/time-entries';
-import { getLocalDateKey, parseDateKeyToLocalDate, formatDuration } from '@/lib/time';
-import { resolveDefaultBillableClient } from '@/lib/billable/resolve-client';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { getLocalDateKey, parseDateKeyToLocalDate } from '@/lib/time';
+import { UNASSIGNED_PROJECT_KEY } from '@/lib/tracking';
+import { ManualTimeEntryForm } from './ManualTimeEntryForm';
+import { LiveDayTotal } from './LiveElapsed';
+import type { TrackerFilterState } from './TrackerPageClient';
 
 interface TrackerListProps {
   entries: TimeEntry[];
@@ -36,6 +34,7 @@ interface TrackerListProps {
   totalCount: number;
   page: number;
   pageSize: number;
+  filters: TrackerFilterState;
 }
 
 const TrackerList: React.FC<TrackerListProps> = ({
@@ -47,13 +46,29 @@ const TrackerList: React.FC<TrackerListProps> = ({
   totalCount,
   page,
   pageSize,
+  filters,
 }) => {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [entryProjectId, setEntryProjectId] = useState<string>('none');
-  const [entryIsBillable, setEntryIsBillable] = useState(true);
-  const [billableTouched, setBillableTouched] = useState(false);
+  const [searchText, setSearchText] = useState(filters.q);
+
+  const pushFilters = (next: Partial<TrackerFilterState> & { page?: number }) => {
+    const params = new URLSearchParams();
+    const q = next.q ?? filters.q;
+    const project = next.project ?? filters.project;
+    const client = next.client ?? filters.client;
+    const billable = next.billable ?? filters.billable;
+    const nextPage = next.page ?? 1;
+    if (q) params.set("q", q);
+    if (project) params.set("project", project);
+    if (client) params.set("client", client);
+    if (billable) params.set("billable", billable);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const query = params.toString();
+    router.push(query ? `/tracker?${query}` : "/tracker");
+  };
+
+  const hasFilters = Boolean(filters.q || filters.project || filters.client || filters.billable);
   
   // Group entries by date
   const groupedEntries = useMemo(() => {
@@ -94,61 +109,56 @@ const TrackerList: React.FC<TrackerListProps> = ({
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const formatTotalDuration = (entries: TimeEntry[]) =>
-    formatDuration(entries.reduce((acc, curr) => acc + (curr.durationSeconds || 0), 0));
 
-  const getDefaultBillable = (projectId: string) =>
-    resolveDefaultBillableClient({ projectId, clientId: null, projects, clients });
-
-  const handleManualLog = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-
-    const dateStr = formData.get('date') as string; // YYYY-MM-DD
-    const startStr = formData.get('startTime') as string; // HH:MM
-    const endStr = formData.get('endTime') as string; // HH:MM
-    const rateOverrideRaw = formData.get('rateOverride') as string | null;
-    const rateOverride = rateOverrideRaw && rateOverrideRaw.trim() !== ''
-      ? parseFloat(rateOverrideRaw)
-      : null;
-
-    // Parse as local time and convert to proper Date objects
-    // This handles the user's local timezone correctly
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const [startHour, startMin] = startStr.split(':').map(Number);
-    const [endHour, endMin] = endStr.split(':').map(Number);
-
-    const start = new Date(year, month - 1, day, startHour, startMin, 0);
-    const end = new Date(year, month - 1, day, endHour, endMin, 0);
-    
-    startTransition(async () => {
-      const result = await logManualTimeEntry({
-        projectId: entryProjectId === 'none' ? null : entryProjectId,
-        description: formData.get('description') as string,
-        startTime: start,
-        endTime: end,
-        isBillable: entryIsBillable,
-        rateOverride: rateOverride,
-      });
-
-      if (result.success) {
-        setIsDialogOpen(false);
-        setEntryProjectId('none');
-        setEntryIsBillable(true);
-        setBillableTouched(false);
-        e.currentTarget.reset();
-      } else {
-        toast.error(result.error || 'Failed to log entry');
-      }
-    });
-  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3">
+        <form
+          className="grid grid-cols-1 md:grid-cols-4 gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            pushFilters({ q: searchText, page: 1 });
+          }}
+        >
+          <Input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search descriptions"
+            aria-label="Search descriptions"
+          />
+          <Select value={filters.project || "all"} onValueChange={(value) => pushFilters({ project: value === "all" ? "" : value })}>
+            <SelectTrigger aria-label="Filter by project"><SelectValue placeholder="Project" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All projects</SelectItem>
+              <SelectItem value={UNASSIGNED_PROJECT_KEY}>No project</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.client || "all"} onValueChange={(value) => pushFilters({ client: value === "all" ? "" : value })}>
+            <SelectTrigger aria-label="Filter by client"><SelectValue placeholder="Client" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.billable || "all"} onValueChange={(value) => pushFilters({ billable: value === "all" ? "" : value })}>
+            <SelectTrigger aria-label="Filter by billable"><SelectValue placeholder="Billable" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All entries</SelectItem>
+              <SelectItem value="yes">Billable</SelectItem>
+              <SelectItem value="no">Non-billable</SelectItem>
+            </SelectContent>
+          </Select>
+        </form>
+        <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-500">
           {totalCount === 0
-            ? 'No time entries yet.'
+            ? hasFilters ? 'No matching entries.' : 'No time entries yet.'
             : `Showing ${Math.min((page - 1) * pageSize + 1, totalCount)}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
         </p>
         {totalCount > pageSize && (
@@ -158,7 +168,7 @@ const TrackerList: React.FC<TrackerListProps> = ({
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => router.push(page <= 2 ? '/tracker' : `/tracker?page=${page - 1}`)}
+              onClick={() => pushFilters({ page: page - 1 })}
             >
               Previous
             </Button>
@@ -167,124 +177,41 @@ const TrackerList: React.FC<TrackerListProps> = ({
               variant="outline"
               size="sm"
               disabled={page * pageSize >= totalCount}
-              onClick={() => router.push(`/tracker?page=${page + 1}`)}
+              onClick={() => pushFilters({ page: page + 1 })}
             >
               Next
             </Button>
           </div>
         )}
+        </div>
       </div>
       <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (open) {
-            setBillableTouched(false);
-            setEntryIsBillable(getDefaultBillable(entryProjectId));
-          }
-        }}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" className="text-slate-600 border-slate-200">
               <Plus size={14} className="mr-2" />
               Log Time Manually
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
               <DialogTitle>Log Time Manually</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleManualLog} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">What did you work on?</Label>
-                <Input id="description" name="description" placeholder="Short description..." required disabled={isPending} />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="projectId">Project</Label>
-                <Select
-                  name="projectId"
-                  disabled={isPending}
-                  value={entryProjectId}
-                  onValueChange={(value) => {
-                    setEntryProjectId(value);
-                    if (!billableTouched) {
-                      setEntryIsBillable(getDefaultBillable(value));
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Project</SelectItem>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <Label htmlFor="date">Date</Label>
-                 <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required disabled={isPending} />
-               </div>
-                <div className="space-y-2">
-                  <Label htmlFor="rateOverride">Rate override</Label>
-                  <Input
-                    id="rateOverride"
-                    name="rateOverride"
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 50"
-                    disabled={isPending}
-                  />
-                  <p className="text-[10px] text-slate-500 italic">Optional entry-only hourly rate</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <Checkbox
-                  id="billable"
-                  name="billable"
-                  checked={entryIsBillable}
-                  onCheckedChange={(checked) => {
-                    setEntryIsBillable(Boolean(checked));
-                    setBillableTouched(true);
-                  }}
-                />
-                <Label htmlFor="billable">Billable</Label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startTime">Start Time</Label>
-                  <Input id="startTime" name="startTime" type="time" required disabled={isPending} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endTime">End Time</Label>
-                  <Input id="endTime" name="endTime" type="time" required disabled={isPending} />
-                </div>
-              </div>
-
-              <DialogFooter className="pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700">
-                  {isPending ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
-                  Save Entry
-                </Button>
-              </DialogFooter>
-            </form>
+            <ManualTimeEntryForm
+              projects={projects}
+              clients={clients}
+              onSuccess={() => setIsDialogOpen(false)}
+            />
           </DialogContent>
         </Dialog>
       </div>
 
       {groupedEntries.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
-          No time entries yet.
+        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 space-y-3">
+          <p>{hasFilters ? "No matching entries." : "No time entries yet."}</p>
+          <Button type="button" onClick={() => setIsDialogOpen(true)}>
+            {hasFilters ? "Log time" : "Log your first entry"}
+          </Button>
         </div>
       ) : (
         groupedEntries.map((group) => (
@@ -294,7 +221,7 @@ const TrackerList: React.FC<TrackerListProps> = ({
                <span className="text-sm font-medium text-slate-500">{formatDateHeader(group.date)}</span>
                <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-400">Total:</span>
-                  <span className="text-sm font-bold text-slate-600 font-mono">{formatTotalDuration(group.entries)}</span>
+                  <LiveDayTotal entries={group.entries} className="text-sm font-bold text-slate-600 font-mono" data-testid="day-total" />
                </div>
             </div>
 
@@ -307,6 +234,7 @@ const TrackerList: React.FC<TrackerListProps> = ({
                           key={entry.id} 
                           entry={entry} 
                           project={project}
+                          projects={projects}
                           availableTags={tags}
                           onRestart={onRestart}
                       />

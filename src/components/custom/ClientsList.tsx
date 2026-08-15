@@ -117,6 +117,7 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
               <input
                   type="text"
                   name="name"
+                  id="new-client-name"
                   placeholder="Add new Client"
                   disabled={isPending}
                   className="flex-1 xl:w-64 px-4 py-2 text-sm border border-r-0 border-slate-200 rounded-l-md outline-none focus:z-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 disabled:bg-slate-50"
@@ -161,8 +162,16 @@ const ClientsList: React.FC<ClientsListProps> = ({ clients: initialClients, invo
               ))}
               {filteredClients.length === 0 && (
                 <tr>
-                    <td colSpan={7} className="p-12 text-center text-slate-400">
-                        No clients found.
+                    <td colSpan={7} className="p-12 text-center text-slate-500 space-y-3">
+                        <p>{initialClients.length === 0 ? "No clients yet." : "No clients found."}</p>
+                        {initialClients.length === 0 && (
+                          <Button
+                            type="button"
+                            onClick={() => document.getElementById("new-client-name")?.focus()}
+                          >
+                            Add your first client
+                          </Button>
+                        )}
                     </td>
                 </tr>
               )}

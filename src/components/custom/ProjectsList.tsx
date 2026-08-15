@@ -23,7 +23,8 @@ import {
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Project, Client, TimeEntry } from '@/types';
 import { createProject, deleteProject, updateProject, toggleFavorite, archiveProject, unarchiveProject } from '@/server/actions/projects';
-import { startTimer, stopTimer } from '@/server/actions/time-entries';
+import { stopTimer } from '@/server/actions/time-entries';
+import { useTimerSession } from './TimerSessionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -343,8 +344,13 @@ const ProjectsList: React.FC<ProjectsListProps> = ({ projects, clients, activeTi
           </table>
 
           {projects.length === 0 && (
-            <div className="p-12 text-center text-slate-400">
-              <p>No projects found matching your criteria.</p>
+            <div className="p-12 text-center text-slate-500 space-y-3">
+              <p>{totalCount === 0 ? "No projects yet." : "No projects found matching your criteria."}</p>
+              {totalCount === 0 && (
+                <Button type="button" onClick={() => setIsDialogOpen(true)}>
+                  Create a project
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -545,21 +551,25 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
   const isProjectTimerActive = activeTimer?.projectId === project.id;
   const isProjectTimerPaused = isProjectTimerActive && !!activeTimer?.pausedAtISO;
 
+  const { requestStart } = useTimerSession();
+
   const handleTimerAction = () => {
     setIsTimerActionPending(true);
 
     startTransition(async () => {
       try {
-        const result = isProjectTimerActive && activeTimer
-          ? await stopTimer(activeTimer.id)
-          : await startTimer(project.id, '');
-
-        if (!result.success) {
-          toast.error(result.error || (isProjectTimerActive ? 'Failed to stop timer' : 'Failed to start timer'));
+        if (isProjectTimerActive && activeTimer) {
+          const result = await stopTimer(activeTimer.id);
+          if (!result.success) {
+            toast.error(result.error || 'Failed to stop timer');
+            return;
+          }
+          router.refresh();
           return;
         }
 
-        router.refresh();
+        const started = await requestStart(project.id, '');
+        if (started) router.refresh();
       } finally {
         setIsTimerActionPending(false);
       }
@@ -649,8 +659,8 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, clients, activeTimer, 
                 ? 'Stop paused timer for this project'
                 : 'Stop running timer for this project'
               : activeTimer
-                ? 'Stop the current timer and start tracking this project'
-                : 'Start tracking this project'
+                ? 'Stop the current timer and start an untitled timer for this project'
+                : 'Start an untitled timer for this project'
           }
         >
           {isTimerActionPending ? (

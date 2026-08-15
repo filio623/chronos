@@ -6,6 +6,7 @@ import { getTags } from "@/server/data/tags";
 import { Project, Client } from "@/types";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
 import { parsePageParam } from "@/lib/time";
+import { firstParam, parseTrackerFilters } from "@/lib/tracking";
 
 const PAGE_SIZE = 50;
 
@@ -13,17 +14,30 @@ export default async function TrackerPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = await props.searchParams;
-  const page = parsePageParam(typeof searchParams?.page === "string" ? searchParams.page : undefined);
+  const page = parsePageParam(typeof searchParams?.page === "string" ? searchParams.page : firstParam(searchParams?.page));
+  const filters = parseTrackerFilters({
+    q: firstParam(searchParams?.q),
+    project: firstParam(searchParams?.project),
+    client: firstParam(searchParams?.client),
+    billable: firstParam(searchParams?.billable),
+  });
 
   const [projectsData, clientsData, entriesData, tagsData] = await Promise.all([
-    getProjects({ status: 'active', pageSize: 50 }),
+    getProjects({ status: "active", pageSize: 500 }),
     getClientsWithData(),
-    getTimeEntries({ page, pageSize: PAGE_SIZE }),
+    getTimeEntries({
+      page,
+      pageSize: PAGE_SIZE,
+      q: filters.q,
+      projectId: filters.projectId,
+      clientId: filters.clientId,
+      isBillable: filters.isBillable,
+    }),
     getTags(),
   ]);
 
   const projects = projectsData.projects.map(mapProject);
-  const clients = clientsData.map(mapClient);
+  const clients = clientsData.map((client) => mapClient(client));
   const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
   const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
   const entries = entriesData.entries.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
@@ -47,6 +61,12 @@ export default async function TrackerPage(props: {
         totalCount={entriesData.totalCount}
         page={page}
         pageSize={PAGE_SIZE}
+        filters={{
+          q: filters.q ?? "",
+          project: filters.projectId ?? "",
+          client: filters.clientId ?? "",
+          billable: filters.isBillable === true ? "yes" : filters.isBillable === false ? "no" : "",
+        }}
       />
     </section>
   );

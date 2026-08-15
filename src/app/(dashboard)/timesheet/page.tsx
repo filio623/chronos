@@ -5,13 +5,15 @@ import { getTimeEntries, TimeEntryWithRelations } from "@/server/data/time-entri
 import { Project, Client } from "@/types";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
 import { weekRangeFromParam } from "@/lib/time";
+import { getTrackingPrefs } from "@/lib/prefs";
 
 export default async function TimesheetPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = await props.searchParams;
   const weekParam = typeof searchParams?.week === "string" ? searchParams.week : undefined;
-  const { start, endExclusive, weekStartKey } = weekRangeFromParam(weekParam);
+  const prefs = await getTrackingPrefs();
+  const { start, endExclusive, weekStartKey } = weekRangeFromParam(weekParam, new Date(), prefs.weekStartsOn);
 
   const [projectsData, clientsData, entriesData] = await Promise.all([
     getProjects({ status: 'active', pageSize: 50 }),
@@ -20,7 +22,7 @@ export default async function TimesheetPage(props: {
   ]);
 
   const projects = projectsData.projects.map(mapProject);
-  const clients = clientsData.map(mapClient);
+  const clients = clientsData.map((client) => mapClient(client, prefs.rounding));
   const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
   const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
   const entries = entriesData.entries.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
@@ -31,6 +33,7 @@ export default async function TimesheetPage(props: {
       clients={clients}
       entries={entries}
       weekStart={weekStartKey}
+      weekStartsOn={prefs.weekStartsOn}
     />
   );
 }

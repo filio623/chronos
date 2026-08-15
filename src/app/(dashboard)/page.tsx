@@ -6,6 +6,9 @@ import { getTimeEntries, getActiveTimer, TimeEntryWithRelations } from "@/server
 import { getTags } from "@/server/data/tags";
 import { Project, Client } from "@/types";
 import { mapProject, mapClient, mapEntry } from "@/lib/mappers";
+import { getTrackingPrefs } from "@/lib/prefs";
+import { weekRangeFromParam } from "@/lib/time";
+import { weekDaysElapsed } from "@/lib/tracking";
 
 export default async function DashboardPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -21,16 +24,20 @@ export default async function DashboardPage(props: {
     }
   }
 
-  const [projectsData, clientsData, entriesData, activeTimerData, tagsData] = await Promise.all([
+  const prefs = await getTrackingPrefs();
+  const { start, endExclusive } = weekRangeFromParam(undefined, new Date(), prefs.weekStartsOn);
+
+  const [projectsData, clientsData, entriesData, activeTimerData, tagsData, weekData] = await Promise.all([
     getProjects({ status: 'active', pageSize: 50 }),
     getClientsWithData(),
     getTimeEntries({ pageSize: 10 }),
     getActiveTimer(),
     getTags(),
+    getTimeEntries({ startTimeGte: start, startTimeLt: endExclusive }),
   ]);
 
   const projects = projectsData.projects.map(mapProject);
-  const clients = clientsData.map(mapClient);
+  const clients = clientsData.map((client) => mapClient(client, prefs.rounding));
   const projectMap = new Map(projects.map((p: Project) => [p.id, p]));
   const clientMap = new Map(clients.map((c: Client) => [c.id, c]));
   const entries = entriesData.entries.map((entry: TimeEntryWithRelations) => mapEntry(entry, projectMap, clientMap));
@@ -42,6 +49,13 @@ export default async function DashboardPage(props: {
     isSystem: tag.isSystem,
   }));
 
+  const hoursThisWeekByClient: Record<string, number> = {};
+  for (const entry of weekData.entries) {
+    const clientId = entry.clientId;
+    if (!clientId) continue;
+    hoursThisWeekByClient[clientId] = (hoursThisWeekByClient[clientId] ?? 0) + ((entry.duration ?? 0) / 3600);
+  }
+
   return (
     <DashboardView
       projects={projects}
@@ -49,6 +63,8 @@ export default async function DashboardPage(props: {
       entries={entries}
       activeTimer={activeTimer}
       tags={tags}
+      hoursThisWeekByClient={hoursThisWeekByClient}
+      weekDaysElapsed={weekDaysElapsed(new Date(), prefs.weekStartsOn)}
     />
   );
 }

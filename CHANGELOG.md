@@ -6,9 +6,27 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 
 ## [Unreleased]
 
+### Added
+- Keyboard shortcuts: `s` start/stop, `p` pause/resume, `n` new manual entry, `?` cheat sheet. Shortcuts do not fire while typing in an input.
+- Idle timer bar Continue + recent-task chips start the last project and description immediately.
+- Searchable project picker with favorites and recents pinned (no silent 50-item cap on the bar).
+- Billable toggle on the idle and running bars; you can change description, project, and billable on a running timer without stopping.
+- Tracker filters for description, project (including unassigned), client, and billable — applied on the server and reflected in the URL.
+- Overlap warning when saving a range that collides with another entry; save requires confirm.
+- Duplicate and split-at-time on the entry menu; delete offers an undo toast.
+- Today / this-week totals in the shell (including the running timer, with billable called out).
+- Sunday/Monday week-start and duration rounding preferences (exact, nearest/up 6 or 15 minutes). Timesheet, Reports “this week”, week totals, displayed hours, reports, and retainer progress share those prefs.
+- Timesheet jump to this week or a picked date; week/grid totals include no-project hours.
+- Days-to-empty (or “no recent hours”) on active retainer cards.
+- One toast per 80% and 100% retainer crossing, including the full elapsed of a running timer (stopped block hours omit open timers).
+- Empty dashboard / tracker / clients / projects offer a primary create or start/log action.
+
 ### Fixed
 - Pausing a timer now keeps a pause symbol plus the elapsed time in the browser tab (`⏸ mm:ss - Chronos`) until you resume or stop, instead of falling back to a bare `Chronos` title.
 - Timesheet week navigation queries that week on the server, so older weeks no longer look empty once you have more than 50 entries. Tracker paginates with a visible “showing N of M” count.
+- The running timer bar now keeps the task description (and client when one exists) instead of replacing it with “Tracking”.
+- Starting a new timer while one is already running asks before replacing it.
+- Manual time on the tracker uses the same form as the timesheet, defaults to today’s local date, and wraps overnight ranges to the next day.
 
 ### Added
 - Invoice block work assignment tools: you can now add specific past entries and selected projects to an active invoice block, with project links continuing to auto-capture future entries for those projects.
@@ -17,6 +35,9 @@ The format is based on Keep a Changelog, and this project follows semantic versi
 - Project rows now include direct timer controls so you can start a tracking session from the projects list without switching views.
 
 ### Changed
+- Tracker and dashboard durations for the running entry (and that day’s group total) tick live from the same elapsed helper as the timer bar, without re-rendering the whole page every second.
+- Time entries can be edited (description, project, start/end) from the tracker row.
+- Timesheet week-grid cells are plain totals, not fake inputs.
 - Dashboard Recent Activity now live-updates the duration shown for the currently running timer entry, so elapsed time advances in-row alongside `Running...`.
 - Tracker view now uses the same live timer duration for the currently running entry, including live-updated group totals.
 - Browser tab title now keeps showing elapsed time while a timer is paused (`Paused • mm:ss`) instead of clearing.

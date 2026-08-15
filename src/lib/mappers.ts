@@ -6,6 +6,7 @@ import { TimeEntry as PrismaTimeEntry } from "@prisma/client";
 import { InvoiceBlockWithHours } from "@/server/data/invoice-blocks";
 import { elapsed as elapsedSecondsForTimer } from "@/lib/timer-calculator";
 import { formatDuration } from "@/lib/time";
+import { DEFAULT_ROUNDING, roundSeconds, type RoundingRule } from "@/lib/tracking";
 
 export const mapProject = (p: ProjectWithHours): Project => ({
   id: p.id,
@@ -21,20 +22,26 @@ export const mapProject = (p: ProjectWithHours): Project => ({
   hourlyRate: p.hourlyRate,
 });
 
-export const mapInvoiceBlock = (b: InvoiceBlockWithHours): InvoiceBlock => ({
-  id: b.id,
-  clientId: b.clientId,
-  hoursTarget: b.hoursTarget,
-  hoursCarriedForward: b.hoursCarriedForward,
-  startDate: b.startDate.toISOString(),
-  endDate: b.endDate ? b.endDate.toISOString() : null,
-  status: b.status as InvoiceBlockStatus,
-  notes: b.notes ?? undefined,
-  hoursTracked: b.hoursTracked,
-  progressPercent: b.progressPercent,
-});
+export const mapInvoiceBlock = (b: InvoiceBlockWithHours, rounding: RoundingRule = DEFAULT_ROUNDING): InvoiceBlock => {
+  const hoursTracked = roundSeconds(b.hoursTracked * 3600, rounding) / 3600;
+  const progressPercent = b.hoursTarget > 0
+    ? Math.max(0, (hoursTracked / b.hoursTarget) * 100)
+    : 0;
+  return {
+    id: b.id,
+    clientId: b.clientId,
+    hoursTarget: b.hoursTarget,
+    hoursCarriedForward: b.hoursCarriedForward,
+    startDate: b.startDate.toISOString(),
+    endDate: b.endDate ? b.endDate.toISOString() : null,
+    status: b.status as InvoiceBlockStatus,
+    notes: b.notes ?? undefined,
+    hoursTracked,
+    progressPercent,
+  };
+};
 
-export const mapClient = (c: ClientWithData): Client => ({
+export const mapClient = (c: ClientWithData, rounding: RoundingRule = DEFAULT_ROUNDING): Client => ({
   id: c.id,
   name: c.name,
   address: c.address ?? undefined,
@@ -42,7 +49,7 @@ export const mapClient = (c: ClientWithData): Client => ({
   color: c.color,
   budgetLimit: c.budgetLimit,
   hoursTracked: c.hoursTracked,
-  activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock) : null,
+  activeInvoiceBlock: c.activeInvoiceBlock ? mapInvoiceBlock(c.activeInvoiceBlock, rounding) : null,
   defaultBillable: c.defaultBillable,
   defaultRate: c.defaultRate,
 });
